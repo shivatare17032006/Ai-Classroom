@@ -17,12 +17,16 @@ public class SubmissionService {
     private final AssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final GeminiService geminiService;
+    private final PlagiarismService plagiarismService;
 
-    public SubmissionService(SubmissionRepository submissionRepository, AssignmentRepository assignmentRepository, UserRepository userRepository, NotificationService notificationService) {
+    public SubmissionService(SubmissionRepository submissionRepository, AssignmentRepository assignmentRepository, UserRepository userRepository, NotificationService notificationService, GeminiService geminiService, PlagiarismService plagiarismService) {
         this.submissionRepository = submissionRepository;
         this.assignmentRepository = assignmentRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.geminiService = geminiService;
+        this.plagiarismService = plagiarismService;
     }
 
     public List<Submission> getAllSubmissions() {
@@ -48,12 +52,21 @@ public class SubmissionService {
         double similarityThreshold = assignment != null && assignment.getSimilarityThreshold() != null 
                 ? assignment.getSimilarityThreshold() : 15.0;
 
-        // Mock similarity calculation
-        double mockSimilarity = Math.round((Math.random() * 20.0) * 10.0) / 10.0;
-        boolean isPlagiarized = mockSimilarity > similarityThreshold;
-
         String submissionId = "sub-" + System.currentTimeMillis();
         String nowStr = LocalDateTime.now().toString();
+
+        // Perform multi-algorithm Plagiarism Analysis
+        List<Submission> existingSubmissions = submissionRepository.findByAssignmentId(req.getAssignmentId());
+        PlagiarismService.PlagiarismReport plagReport = plagiarismService.analyzePlagiarism(
+                submissionId,
+                req.getStudentId(),
+                req.getContent(),
+                existingSubmissions,
+                similarityThreshold
+        );
+
+        double similarityScore = plagReport.getSimilarityPercentage();
+        boolean isPlagiarized = "FLAGGED_PLAGIARISM".equals(plagReport.getStatus());
 
         Submission submission = Submission.builder()
                 .id(submissionId)
@@ -63,7 +76,7 @@ public class SubmissionService {
                 .submittedAt(nowStr)
                 .content(req.getContent())
                 .fileName(req.getFileName())
-                .similarityPercentage(mockSimilarity)
+                .similarityPercentage(similarityScore)
                 .plagiarismStatus(isPlagiarized ? "FLAGGED_PLAGIARISM" : "ACCEPTED")
                 .aiEvaluated(!isPlagiarized)
                 .status(isPlagiarized ? "REJECTED_PLAGIARISM" : "PENDING_REVIEW")
@@ -77,19 +90,28 @@ public class SubmissionService {
             double aiScore = Math.round(totalMarks * aiPercentage * 10.0) / 10.0;
 
             Map<String, Double> aiRubricBreakdown = new HashMap<>();
+            StringBuilder rubricSummary = new StringBuilder();
             if (assignment.getRubric() != null) {
                 for (RubricItem item : assignment.getRubric()) {
                     double maxScore = item.getMaxScore() != null ? item.getMaxScore() : 2.0;
                     double itemScore = Math.round(maxScore * aiPercentage * 10.0) / 10.0;
                     aiRubricBreakdown.put(item.getId(), itemScore);
+                    rubricSummary.append(item.getCriteria()).append(" (Max ").append(maxScore).append("); ");
                 }
             }
 
+            // Call Gemini 1.5 Pro REST API
+            String geminiFeedback = geminiService.evaluateSubmissionWithGemini(
+                req.getContent(),
+                assignment.getTitle() + ": " + assignment.getDescription(),
+                rubricSummary.toString()
+            );
+
             submission.setAiSuggestedGrade(aiScore);
             submission.setAiRubricBreakdown(aiRubricBreakdown);
-            submission.setAiFeedback("AI Evaluation: High correlation with rubric criteria. Clear logic structure and code flow. Suggested grade: " + aiScore + "/" + totalMarks + ".");
+            submission.setAiFeedback(geminiFeedback);
         } else if (isPlagiarized) {
-            submission.setAiFeedback("Submission rejected prior to AI grading. Similarity " + mockSimilarity + "% exceeds allowed threshold (" + similarityThreshold + "%).");
+            submission.setAiFeedback("Submission rejected prior to AI grading. Similarity " + similarityScore + "% exceeds allowed threshold (" + similarityThreshold + "%).");
 
             // Dispatch notification to teacher
             notificationService.sendNotification(Notification.builder()
@@ -99,7 +121,7 @@ public class SubmissionService {
                     .studentName(req.getStudentName())
                     .type("PLAGIARISM_ALERT")
                     .title("Academic Integrity Alert: Similarity Threshold Exceeded")
-                    .message("Student " + req.getStudentName() + " submitted work with " + mockSimilarity + "% similarity (Allowed threshold: " + similarityThreshold + "%). Submission automatically flagged.")
+                    .message("Student " + req.getStudentName() + " submitted work with " + similarityScore + "% similarity (Allowed threshold: " + similarityThreshold + "%). Submission automatically flagged.")
                     .build());
         }
 

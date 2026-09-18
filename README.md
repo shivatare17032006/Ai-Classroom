@@ -13,7 +13,7 @@ The platform provides a comprehensive learning management ecosystem connecting e
 ## Key Feature Modules
 
 ### 1. System Administration & B2B SaaS Hub (`ADMIN`)
-- **Institutional Domain Licensing**: Register and whitelist enterprise domain extensions (e.g., `@vit.edu`, `@coep.edu.in`) with custom pricing in **₹ INR**.
+- **Institutional Domain Licensing**: Register and whitelist enterprise domain extensions (e.g., `@vit.edu`) with custom pricing in **₹ INR**.
 - **Automated AI Access Unlock**: Users signing up with whitelisted institutional email domains automatically receive site-wide enterprise AI features.
 - **Monetization & Growth Metrics**: Track Annual Recurring Revenue (ARR), Monthly Recurring Revenue (MRR), and active institutional subscription counts in real time.
 - **Academic Governance**: Global plagiarism similarity thresholds and automated parent notification triggers.
@@ -65,17 +65,3 @@ The platform provides a comprehensive learning management ecosystem connecting e
 
 ---
 
-## Main API Endpoints Summary
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/licenses` | List all institutional domain subscriptions |
-| `POST` | `/api/licenses` | Create a new B2B domain license |
-| `PUT` | `/api/licenses/{id}/toggle` | Activate or suspend an institutional license |
-| `GET` | `/api/classrooms` | Fetch active classrooms |
-| `POST` | `/api/classrooms/join` | Join a classroom via 6-digit code |
-| `GET` | `/api/assignments` | Retrieve course assignments |
-| `POST` | `/api/submissions` | Submit student coursework |
-| `POST` | `/api/submissions/{id}/review` | Finalize teacher grade and AI feedback |
-| `POST` | `/api/extensions` | Grant student-specific deadline extensions |
-| `POST` | `/api/announcements` | Post course announcement |

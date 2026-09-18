@@ -13,6 +13,13 @@ dist/
 dist-ssr/
 *.local
 
+# Secrets & Environment Configurations
+.env
+.env.*
+*.secret
+*.secret.properties
+application-local.properties
+
 # Editor & System directories
 .vscode/
 .idea/
