@@ -41,15 +41,7 @@ The platform provides a comprehensive learning management ecosystem connecting e
 
 ---
 
-## Demonstration Credentials
 
-| Role | Email | Password | Primary Interface |
-| :--- | :--- | :--- | :--- |
-| **System Admin** | `admin@classroom.edu` | `admin123` | SaaS Monetization & Domain Licensing Hub |
-| **Lead Educator** | `dr.sharma@vit.edu` | `teacher123` | Classrooms, AI Review Hub & Extensions |
-| **Student** | `rohan.gupta@vit.edu` | `student123` | Coursework, Submissions & Certificate Locker |
-
----
 
 ## Installation & Running Locally
 
