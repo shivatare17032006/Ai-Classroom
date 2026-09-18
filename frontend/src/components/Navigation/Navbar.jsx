@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useClassroom } from '../../context/ClassroomContext';
+import { UserAvatar } from '../Common/UserAvatar';
 import { 
   Sparkles, 
   Bell, 
@@ -8,15 +9,12 @@ import {
   Sun, 
   BookOpen, 
   LogOut,
-  UserCheck,
-  GraduationCap,
-  Shield,
   ShieldAlert,
   ChevronDown
 } from 'lucide-react';
 
 export const Navbar = () => {
-  const { currentUser, logout, switchRole } = useAuth();
+  const { currentUser, logout } = useAuth();
   const { classrooms, activeClassroom, setActiveClassroom, notifications } = useClassroom();
   
   const [theme, setTheme] = useState('dark');
@@ -28,6 +26,18 @@ export const Navbar = () => {
     setTheme(nextTheme);
     document.documentElement.setAttribute('data-theme', nextTheme);
   };
+
+  const userClassrooms = (classrooms || []).filter(c => {
+    if (!c) return false;
+    if (currentUser?.role === 'ADMIN') return false;
+    if (currentUser?.role === 'TEACHER') {
+      return c.teacherId === currentUser.id;
+    }
+    if (currentUser?.role === 'STUDENT') {
+      return Array.isArray(c.studentIds) && c.studentIds.includes(currentUser.id);
+    }
+    return false;
+  });
 
   const unreadNotifs = (notifications || []).filter(n => !n?.read);
 
@@ -66,56 +76,24 @@ export const Navbar = () => {
       </div>
 
       {/* Classroom Dropdown Selector */}
-      {(classrooms || []).length > 0 && (
+      {userClassrooms.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '0.4rem 0.9rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
           <BookOpen size={16} color="var(--accent-blue)" />
           <select 
-            value={activeClassroom?.id || ''} 
-            onChange={(e) => setActiveClassroom((classrooms || []).find(c => c.id === e.target.value))}
+            value={activeClassroom && userClassrooms.some(c => c.id === activeClassroom.id) ? activeClassroom.id : ''} 
+            onChange={(e) => setActiveClassroom(userClassrooms.find(c => c.id === e.target.value))}
             style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', outline: 'none' }}
           >
-            {(classrooms || []).map(c => (
+            {userClassrooms.map(c => (
               <option key={c.id} value={c.id} style={{ background: 'var(--bg-secondary)' }}>{c.name}</option>
             ))}
           </select>
         </div>
       )}
 
-
-      {/* Control Actions & Role Switcher */}
+      {/* Right User Actions & Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         
-        {/* Role Switcher Pill */}
-        <div style={{
-          display: 'flex',
-          background: 'var(--bg-secondary)',
-          padding: '0.2rem',
-          borderRadius: 'var(--radius-lg)',
-          border: '1px solid var(--border-color)'
-        }}>
-          <button 
-            onClick={() => switchRole('TEACHER')}
-            className={`btn btn-sm ${currentUser?.role === 'TEACHER' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ borderRadius: 'var(--radius-md)', gap: '0.3rem', padding: '0.3rem 0.65rem', fontSize: '0.78rem' }}
-          >
-            <UserCheck size={13} /> Teacher
-          </button>
-          <button 
-            onClick={() => switchRole('STUDENT')}
-            className={`btn btn-sm ${currentUser?.role === 'STUDENT' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ borderRadius: 'var(--radius-md)', gap: '0.3rem', padding: '0.3rem 0.65rem', fontSize: '0.78rem' }}
-          >
-            <GraduationCap size={13} /> Student
-          </button>
-          <button 
-            onClick={() => switchRole('ADMIN')}
-            className={`btn btn-sm ${currentUser?.role === 'ADMIN' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ borderRadius: 'var(--radius-md)', gap: '0.3rem', padding: '0.3rem 0.65rem', fontSize: '0.78rem' }}
-          >
-            <Shield size={13} /> Admin
-          </button>
-        </div>
-
         {/* Theme Toggle */}
         <button 
           onClick={toggleTheme} 
@@ -201,7 +179,7 @@ export const Navbar = () => {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.6rem',
+              gap: '0.65rem',
               background: 'var(--bg-secondary)',
               border: '1px solid var(--border-color)',
               padding: '0.35rem 0.75rem',
@@ -209,11 +187,7 @@ export const Navbar = () => {
               cursor: 'pointer'
             }}
           >
-            <img 
-              src={currentUser?.avatar} 
-              alt={currentUser?.name} 
-              style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} 
-            />
+            <UserAvatar name={currentUser?.name || 'User'} avatar={currentUser?.avatar} size={32} />
             <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>{currentUser?.name}</span>
               <span style={{ fontSize: '0.68rem', color: 'var(--accent-purple)', fontWeight: 600 }}>{currentUser?.role}</span>
@@ -231,9 +205,12 @@ export const Navbar = () => {
               zIndex: 200,
               padding: '0.75rem'
             }}>
-              <div style={{ paddingBottom: '0.5rem', marginBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, display: 'block' }}>{currentUser?.name}</span>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{currentUser?.email}</span>
+              <div style={{ paddingBottom: '0.5rem', marginBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <UserAvatar name={currentUser?.name || 'User'} avatar={currentUser?.avatar} size={36} />
+                <div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, display: 'block' }}>{currentUser?.name}</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{currentUser?.email}</span>
+                </div>
               </div>
               <button 
                 onClick={logout}

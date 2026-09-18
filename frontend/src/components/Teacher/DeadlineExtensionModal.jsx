@@ -4,10 +4,14 @@ import { useAuth } from '../../context/AuthContext';
 import { X, Calendar, Clock, UserCheck, CheckCircle } from 'lucide-react';
 
 export const DeadlineExtensionModal = ({ isOpen, onClose, defaultAssignmentId }) => {
-  const { assignments, grantIndividualExtension, extensions } = useClassroom();
+  const { activeClassroom, assignments, grantIndividualExtension, extensions } = useClassroom();
   const { users } = useAuth();
 
-  const students = users.filter(u => u.role === 'STUDENT');
+  const students = (users || []).filter(u => 
+    u?.role === 'STUDENT' && 
+    Array.isArray(activeClassroom?.studentIds) && 
+    activeClassroom.studentIds.includes(u.id)
+  );
 
   const [assignmentId, setAssignmentId] = useState(defaultAssignmentId || (assignments[0]?.id || ''));
   const [studentId, setStudentId] = useState(students[0]?.id || '');

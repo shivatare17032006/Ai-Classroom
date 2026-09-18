@@ -144,7 +144,7 @@ export const CertificateLocker = () => {
       )}
 
       {/* Certificates Cards Grid */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
         {myCertificates.length === 0 ? (
           <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem 1rem' }}>
             <Award size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem display' }} />

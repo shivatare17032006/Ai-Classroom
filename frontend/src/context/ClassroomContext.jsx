@@ -10,28 +10,51 @@ export const ClassroomProvider = ({ children }) => {
   const [extensions, setExtensions] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [certificates, setCertificates] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [systemConfig, setSystemConfig] = useState({});
+  const [licenses, setLicenses] = useState([]);
   const [activeClassroom, setActiveClassroom] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const refreshData = () => {
-    const loadedClassrooms = ApiService.getClassrooms() || [];
-    const loadedAssignments = ApiService.getAssignments() || [];
-    const loadedSubmissions = ApiService.getSubmissions() || [];
-    const loadedExtensions = ApiService.getExtensions() || [];
-    const loadedNotifs = ApiService.getNotifications() || [];
-    const loadedCerts = ApiService.getCertificates() || [];
-    const loadedConfig = ApiService.getSystemConfig() || {};
+  const refreshData = async () => {
+    try {
+      const [
+        loadedClassrooms,
+        loadedAssignments,
+        loadedSubmissions,
+        loadedExtensions,
+        loadedNotifs,
+        loadedCerts,
+        loadedAnnouncements,
+        loadedConfig,
+        loadedLicenses
+      ] = await Promise.all([
+        ApiService.getClassrooms(),
+        ApiService.getAssignments(),
+        ApiService.getSubmissions(),
+        ApiService.getExtensions(),
+        ApiService.getNotifications(),
+        ApiService.getCertificates(),
+        ApiService.getAnnouncements(),
+        ApiService.getSystemConfig(),
+        ApiService.getLicenses()
+      ]);
 
-    setClassrooms(loadedClassrooms);
-    setAssignments(loadedAssignments);
-    setSubmissions(loadedSubmissions);
-    setExtensions(loadedExtensions);
-    setNotifications(loadedNotifs);
-    setCertificates(loadedCerts);
-    setSystemConfig(loadedConfig);
+      const safeClassrooms = loadedClassrooms || [];
+      setClassrooms(safeClassrooms);
+      setAssignments(loadedAssignments || []);
+      setSubmissions(loadedSubmissions || []);
+      setExtensions(loadedExtensions || []);
+      setNotifications(loadedNotifs || []);
+      setCertificates(loadedCerts || []);
+      setAnnouncements(loadedAnnouncements || []);
+      setSystemConfig(loadedConfig || {});
+      setLicenses(loadedLicenses || []);
 
-    if (loadedClassrooms.length > 0 && !activeClassroom) {
-      setActiveClassroom(loadedClassrooms[0]);
+    } catch (e) {
+      console.error('Error refreshing data from backend:', e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -40,54 +63,73 @@ export const ClassroomProvider = ({ children }) => {
   }, []);
 
   // Action Creators
-  const addAssignment = (assignmentData) => {
-    ApiService.createAssignment(assignmentData);
-    refreshData();
-  };
-
-  const addClassroom = (classroomData, teacher) => {
-    const created = ApiService.createClassroom(classroomData, teacher);
-    refreshData();
-    setActiveClassroom(created);
+  const addAssignment = async (assignmentData) => {
+    const created = await ApiService.createAssignment(assignmentData);
+    await refreshData();
     return created;
   };
 
-  const joinClassroom = (code, studentId) => {
-    const res = ApiService.joinClassroomByCode(code, studentId);
+  const addClassroom = async (classroomData, teacher) => {
+    const created = await ApiService.createClassroom(classroomData, teacher);
+    await refreshData();
+    if (created) setActiveClassroom(created);
+    return created;
+  };
+
+  const joinClassroom = async (code, studentId) => {
+    const res = await ApiService.joinClassroomByCode(code, studentId);
     if (res && res.success) {
-      refreshData();
+      await refreshData();
       if (res.classroom) setActiveClassroom(res.classroom);
     }
     return res;
   };
 
-  const submitStudentAssignment = (submissionData, assignment) => {
-    const result = ApiService.submitAssignment(submissionData, assignment);
-    refreshData();
+  const submitStudentAssignment = async (submissionData, assignment) => {
+    const result = await ApiService.submitAssignment(submissionData, assignment);
+    await refreshData();
     return result;
   };
 
-  const finalizeAiGrade = (submissionId, finalScore, teacherComments, assignment) => {
-    const updated = ApiService.reviewAiGrade(submissionId, finalScore, teacherComments, assignment);
-    refreshData();
+  const finalizeAiGrade = async (submissionId, finalScore, teacherComments, assignment) => {
+    const updated = await ApiService.reviewAiGrade(submissionId, finalScore, teacherComments, assignment);
+    await refreshData();
     return updated;
   };
 
-  const grantIndividualExtension = (extensionData) => {
-    const created = ApiService.grantExtension(extensionData);
-    refreshData();
+  const grantIndividualExtension = async (extensionData) => {
+    const created = await ApiService.grantExtension(extensionData);
+    await refreshData();
     return created;
   };
 
-  const uploadCertificate = (certData) => {
-    const created = ApiService.addCertificate(certData);
-    refreshData();
+  const uploadCertificate = async (certData) => {
+    const created = await ApiService.addCertificate(certData);
+    await refreshData();
     return created;
   };
 
-  const updateConfig = (config) => {
-    const updated = ApiService.updateSystemConfig(config);
-    refreshData();
+  const postAnnouncement = async (announcementData) => {
+    const created = await ApiService.createAnnouncement(announcementData);
+    await refreshData();
+    return created;
+  };
+
+  const updateConfig = async (config) => {
+    const updated = await ApiService.updateSystemConfig(config);
+    await refreshData();
+    return updated;
+  };
+
+  const addLicense = async (licenseData) => {
+    const created = await ApiService.createLicense(licenseData);
+    await refreshData();
+    return created;
+  };
+
+  const toggleLicense = async (id) => {
+    const updated = await ApiService.toggleLicense(id);
+    await refreshData();
     return updated;
   };
 
@@ -101,7 +143,10 @@ export const ClassroomProvider = ({ children }) => {
       extensions,
       notifications,
       certificates,
+      announcements,
       systemConfig,
+      licenses,
+      loading,
       addAssignment,
       addClassroom,
       joinClassroom,
@@ -109,7 +154,10 @@ export const ClassroomProvider = ({ children }) => {
       finalizeAiGrade,
       grantIndividualExtension,
       uploadCertificate,
+      postAnnouncement,
       updateConfig,
+      addLicense,
+      toggleLicense,
       refreshData
     }}>
       {children}

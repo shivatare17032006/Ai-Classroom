@@ -29,7 +29,7 @@ export const StudentDashboard = () => {
   const safeNotifications = notifications || [];
   const studentId = currentUser?.id || '';
 
-  const classAssignments = safeAssignments.filter(a => a?.classroomId === activeClassroom?.id || true);
+  const classAssignments = safeAssignments.filter(a => a?.classroomId === activeClassroom?.id);
   const studentNotifs = safeNotifications.filter(n => n?.studentId === studentId);
 
   return (
@@ -42,7 +42,7 @@ export const StudentDashboard = () => {
             Welcome, {currentUser?.name || 'Student'}
           </h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Registered Guardian Email: <strong>{currentUser?.parentEmail || 'parent@example.com'}</strong> • Enrolled in {activeClassroom?.name || 'Classroom'}
+            Role: Student • Enrolled in <strong>{activeClassroom?.name || 'Classroom'}</strong>
           </p>
         </div>
 
@@ -126,16 +126,10 @@ export const StudentDashboard = () => {
                     {asg.description}
                   </p>
 
-                  {/* Configurable Threshold Indicators */}
+                  {/* Coursework Information */}
                   <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                    <span className="badge badge-purple" style={{ fontSize: '0.7rem' }}>
-                      Max Marks: {asg.maximumMarks}
-                    </span>
-                    <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>
-                      Min Threshold: {asg.minimumThreshold}
-                    </span>
                     <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>
-                      Plagiarism Threshold: {asg.similarityThreshold}%
+                      Coursework Assignment
                     </span>
                   </div>
 
@@ -153,26 +147,19 @@ export const StudentDashboard = () => {
                     )}
                   </div>
 
-                  {/* Submission Grade Result (if available) */}
+                  {/* Submission Evaluation Status (No numerical marks shown to student) */}
                   {sub && (
                     <div style={{ background: 'var(--bg-primary)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', marginBottom: '1rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Teacher Final Grade:</span>
-                        <strong style={{ fontSize: '1.2rem', color: sub.isBelowThreshold ? 'var(--status-danger)' : 'var(--status-success)' }}>
-                          {sub.teacherFinalGrade !== null ? `${sub.teacherFinalGrade} / ${asg.maximumMarks}` : 'Pending Review'}
-                        </strong>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Evaluation Status:</span>
+                        <span className={`badge ${sub.status === 'FINALIZED' ? 'badge-success' : 'badge-warning'}`}>
+                          {sub.status === 'FINALIZED' ? 'GRADED / COMPLETED' : 'SUBMITTED / PENDING REVIEW'}
+                        </span>
                       </div>
-                      
-                      {sub.aiSuggestedGrade !== null && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--accent-purple)', display: 'flex', justifyContent: 'space-between' }}>
-                          <span>AI Evaluation Suggestion:</span>
-                          <strong>{sub.aiSuggestedGrade} / {asg.maximumMarks}</strong>
-                        </div>
-                      )}
 
                       {sub.teacherFeedback && (
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.4rem', fontStyle: 'italic', borderTop: '1px border var(--border-color)', paddingTop: '0.3rem' }}>
-                          "{sub.teacherFeedback}"
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.4rem', fontStyle: 'italic', borderTop: '1px solid var(--border-color)', paddingTop: '0.4rem' }}>
+                          Instructor Feedback: "{sub.teacherFeedback}"
                         </p>
                       )}
                     </div>
@@ -217,4 +204,5 @@ export const StudentDashboard = () => {
 
     </div>
   );
+  
 };

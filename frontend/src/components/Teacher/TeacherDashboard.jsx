@@ -35,8 +35,12 @@ export const TeacherDashboard = () => {
   const safeSubmissions = submissions || [];
   const safeExtensions = extensions || [];
 
-  const students = safeUsers.filter(u => u?.role === 'STUDENT');
-  const classAssignments = safeAssignments.filter(a => a?.classroomId === activeClassroom?.id || true);
+  const students = safeUsers.filter(u => 
+    u?.role === 'STUDENT' && 
+    Array.isArray(activeClassroom?.studentIds) && 
+    activeClassroom.studentIds.includes(u.id)
+  );
+  const classAssignments = safeAssignments.filter(a => a?.classroomId === activeClassroom?.id);
 
   // Aggregated Analytics Math
   const totalStudentsCount = students.length;
@@ -175,78 +179,92 @@ export const TeacherDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {classAssignments.flatMap(asg => 
-                  students.map(student => {
-                    const sub = safeSubmissions.find(s => s.assignmentId === asg.id && s.studentId === student.id);
-                    const ext = safeExtensions.find(e => e.assignmentId === asg.id && e.studentId === student.id);
+                {students.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
+                      No enrolled students in this classroom yet. Share the class code (<strong>{activeClassroom?.code}</strong>) with your students to let them join.
+                    </td>
+                  </tr>
+                ) : classAssignments.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
+                      No assignments created yet. Click <strong>"Create Assignment"</strong> above to assign coursework.
+                    </td>
+                  </tr>
+                ) : (
+                  classAssignments.flatMap(asg => 
+                    students.map(student => {
+                      const sub = safeSubmissions.find(s => s.assignmentId === asg.id && s.studentId === student.id);
+                      const ext = safeExtensions.find(e => e.assignmentId === asg.id && e.studentId === student.id);
 
-                    let statusBadge = <span className="badge badge-danger">MISSING</span>;
-                    if (ext && !sub) {
-                      statusBadge = <span className="badge badge-purple">EXTENDED ({new Date(ext.extendedDueDate).toLocaleDateString()})</span>;
-                    } else if (sub) {
-                      if (sub.plagiarismStatus === 'FLAGGED_PLAGIARISM' || sub.status === 'REJECTED_PLAGIARISM') {
-                        statusBadge = <span className="badge badge-danger">REJECTED (PLAGIARISM)</span>;
-                      } else if (sub.isBelowThreshold) {
-                        statusBadge = <span className="badge badge-danger">FLAGGED LOW SCORE</span>;
-                      } else if (sub.status === 'FINALIZED') {
-                        statusBadge = <span className="badge badge-success">PASS / FINALIZED</span>;
-                      } else {
-                        statusBadge = <span className="badge badge-warning">PENDING AI REVIEW</span>;
+                      let statusBadge = <span className="badge badge-danger">MISSING</span>;
+                      if (ext && !sub) {
+                        statusBadge = <span className="badge badge-purple">EXTENDED ({new Date(ext.extendedDueDate).toLocaleDateString()})</span>;
+                      } else if (sub) {
+                        if (sub.plagiarismStatus === 'FLAGGED_PLAGIARISM' || sub.status === 'REJECTED_PLAGIARISM') {
+                          statusBadge = <span className="badge badge-danger">REJECTED (PLAGIARISM)</span>;
+                        } else if (sub.isBelowThreshold) {
+                          statusBadge = <span className="badge badge-danger">FLAGGED LOW SCORE</span>;
+                        } else if (sub.status === 'FINALIZED') {
+                          statusBadge = <span className="badge badge-success">PASS / FINALIZED</span>;
+                        } else {
+                          statusBadge = <span className="badge badge-warning">PENDING AI REVIEW</span>;
+                        }
                       }
-                    }
 
-                    return (
-                      <tr key={`${asg.id}-${student.id}`}>
-                        <td style={{ fontWeight: 700 }}>
-                          {student.name}
-                          <br />
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Parent: {student.parentEmail}</span>
-                        </td>
-                        <td>{asg.title}</td>
-                        <td>{statusBadge}</td>
-                        <td>
-                          {sub ? (
-                            <span style={{ color: sub.similarityPercentage > asg.similarityThreshold ? 'var(--status-danger)' : 'var(--status-success)', fontWeight: 700 }}>
-                              {sub.similarityPercentage}%
-                            </span>
-                          ) : '--'}
-                        </td>
-                        <td>
-                          {sub && sub.aiSuggestedGrade !== null ? (
-                            <strong style={{ color: 'var(--accent-purple)' }}>{sub.aiSuggestedGrade} / {asg.maximumMarks}</strong>
-                          ) : '--'}
-                        </td>
-                        <td>
-                          {sub && sub.teacherFinalGrade !== null ? (
-                            <strong style={{ color: 'var(--status-success)', fontSize: '1rem' }}>{sub.teacherFinalGrade} / {asg.maximumMarks}</strong>
-                          ) : '--'}
-                        </td>
-                        <td>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Min: {asg.minimumThreshold}</span>
-                        </td>
-                        <td>
-                          {sub ? (
-                            <button 
-                              onClick={() => setSelectedSubmission({ submission: sub, assignment: asg })}
-                              className={`btn btn-sm ${sub.status === 'PENDING_REVIEW' ? 'btn-primary' : 'btn-secondary'}`}
-                              style={{ gap: '0.3rem' }}
-                            >
-                              {sub.status === 'PENDING_REVIEW' ? <Sparkles size={14} /> : <Eye size={14} />}
-                              {sub.status === 'PENDING_REVIEW' ? 'Review AI' : 'View Grade'}
-                            </button>
-                          ) : (
-                            <button 
-                              onClick={() => setIsExtensionModalOpen(true)}
-                              className="btn btn-sm btn-secondary" 
-                              style={{ fontSize: '0.75rem', gap: '0.2rem' }}
-                            >
-                              <Clock size={12} /> Give Extension
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
+                      return (
+                        <tr key={`${asg.id}-${student.id}`}>
+                          <td style={{ fontWeight: 700 }}>
+                            {student.name}
+                            <br />
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{student.email}</span>
+                          </td>
+                          <td>{asg.title}</td>
+                          <td>{statusBadge}</td>
+                          <td>
+                            {sub ? (
+                              <span style={{ color: sub.similarityPercentage > asg.similarityThreshold ? 'var(--status-danger)' : 'var(--status-success)', fontWeight: 700 }}>
+                                {sub.similarityPercentage}%
+                              </span>
+                            ) : '--'}
+                          </td>
+                          <td>
+                            {sub && sub.aiSuggestedGrade !== null ? (
+                              <strong style={{ color: 'var(--accent-purple)' }}>{sub.aiSuggestedGrade} / {asg.maximumMarks}</strong>
+                            ) : '--'}
+                          </td>
+                          <td>
+                            {sub && sub.teacherFinalGrade !== null ? (
+                              <strong style={{ color: 'var(--status-success)', fontSize: '1rem' }}>{sub.teacherFinalGrade} / {asg.maximumMarks}</strong>
+                            ) : '--'}
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Min: {asg.minimumThreshold}</span>
+                          </td>
+                          <td>
+                            {sub ? (
+                              <button 
+                                onClick={() => setSelectedSubmission({ submission: sub, assignment: asg })}
+                                className={`btn btn-sm ${sub.status === 'PENDING_REVIEW' ? 'btn-primary' : 'btn-secondary'}`}
+                                style={{ gap: '0.3rem' }}
+                              >
+                                {sub.status === 'PENDING_REVIEW' ? <Sparkles size={14} /> : <Eye size={14} />}
+                                {sub.status === 'PENDING_REVIEW' ? 'Review AI' : 'View Grade'}
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={() => setIsExtensionModalOpen(true)}
+                                className="btn btn-sm btn-secondary" 
+                                style={{ fontSize: '0.75rem', gap: '0.2rem' }}
+                              >
+                                <Clock size={12} /> Give Extension
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )
                 )}
               </tbody>
             </table>

@@ -1,4 +1,6 @@
-// Mock API Service for AI-Enabled Classroom
+// API Service connecting Frontend to Spring Boot REST Backend
+
+const API_BASE_URL = 'http://localhost:8080/api';
 
 const STORAGE_KEYS = {
   USERS: 'aicl_users',
@@ -8,206 +10,66 @@ const STORAGE_KEYS = {
   SUBMISSIONS: 'aicl_submissions',
   NOTIFICATIONS: 'aicl_notifications',
   CERTIFICATES: 'aicl_certificates',
+  ANNOUNCEMENTS: 'aicl_announcements',
+  LICENSES: 'aicl_licenses',
   SYSTEM_CONFIG: 'aicl_system_config'
 };
 
-// Initial Seed Data
+// Initial Seed Data (Clean)
 const INITIAL_USERS = [
-  { id: 'usr-t1', name: 'Prof. Sarah Jenkins', email: 'sarah.jenkins@university.edu', role: 'TEACHER', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150' },
-  { id: 'usr-s1', name: 'Rahul Sharma', email: 'rahul.s@student.edu', role: 'STUDENT', parentEmail: 'parent.rahul@example.com', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150' },
-  { id: 'usr-s2', name: 'Anita Roy', email: 'anita.r@student.edu', role: 'STUDENT', parentEmail: 'parent.anita@example.com', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150' },
-  { id: 'usr-s3', name: 'David Miller', email: 'david.m@student.edu', role: 'STUDENT', parentEmail: 'parent.david@example.com', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' },
-  { id: 'usr-s4', name: 'Priya Patel', email: 'priya.p@student.edu', role: 'STUDENT', parentEmail: 'parent.priya@example.com', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' },
-  { id: 'usr-a1', name: 'System Admin', email: 'admin@university.edu', role: 'ADMIN', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150' }
-];
-
-const INITIAL_CLASSROOMS = [
   {
-    id: 'cls-101',
-    name: 'CS402 - Operating Systems',
-    code: 'OS-2026-X',
-    description: 'Kernel Design, Process Management, and Memory Virtualization',
-    teacherId: 'usr-t1',
-    teacherName: 'Prof. Sarah Jenkins',
-    studentIds: ['usr-s1', 'usr-s2', 'usr-s3', 'usr-s4']
-  },
-  {
-    id: 'cls-102',
-    name: 'CS305 - Database Management Systems',
-    code: 'DBMS-2026-A',
-    description: 'Relational Database Architecture, SQL Optimization, and ACID Transactions',
-    teacherId: 'usr-t1',
-    teacherName: 'Prof. Sarah Jenkins',
-    studentIds: ['usr-s1', 'usr-s2', 'usr-s3', 'usr-s4']
+    id: 'usr-admin',
+    name: 'System Administrator',
+    email: 'admin@classroom.edu',
+    role: 'ADMIN',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
   }
 ];
+const INITIAL_CLASSROOMS = [];
+const INITIAL_ASSIGNMENTS = [];
+const INITIAL_EXTENSIONS = [];
+const INITIAL_SUBMISSIONS = [];
+const INITIAL_NOTIFICATIONS = [];
+const INITIAL_CERTIFICATES = [];
+const INITIAL_ANNOUNCEMENTS = [];
 
-const INITIAL_ASSIGNMENTS = [
+const INITIAL_LICENSES = [
   {
-    id: 'asg-1',
-    classroomId: 'cls-101',
-    title: 'Operating Systems Assignment 1',
-    description: 'Implement a Process Scheduler simulation in Java/C++ with Round Robin and Shortest Remaining Time First algorithm.',
-    maximumMarks: 10,
-    minimumThreshold: 5,
-    similarityThreshold: 15, // 15%
-    dueDate: '2026-09-20T23:59:00',
-    rubric: [
-      { id: 'r1', criteria: 'Understanding', weightPct: 30, maxScore: 3, description: 'Grasping CPU scheduling principles' },
-      { id: 'r2', criteria: 'Correctness', weightPct: 30, maxScore: 3, description: 'Algorithm accuracy & edge case handling' },
-      { id: 'r3', criteria: 'Implementation', weightPct: 20, maxScore: 2, description: 'Clean code structure & concurrency safety' },
-      { id: 'r4', criteria: 'Explanation', weightPct: 20, maxScore: 2, description: 'Documentation and performance analysis report' }
-    ]
+    id: 'lic-vit',
+    institutionName: 'Vishwakarma Institute of Technology (VIT Pune)',
+    domainExtension: 'vit.edu',
+    planType: 'ENTERPRISE_ANNUAL',
+    priceInInr: 49999.0,
+    status: 'ACTIVE',
+    aiServicesAllowed: true,
+    createdAt: new Date().toISOString()
   },
   {
-    id: 'asg-2',
-    classroomId: 'cls-102',
-    title: 'DBMS Assignment 1',
-    description: 'Write complex SQL analytical queries with indexing strategies and window functions.',
-    maximumMarks: 10,
-    minimumThreshold: 6,
-    similarityThreshold: 10, // 10%
-    dueDate: '2026-09-18T23:59:00',
-    rubric: [
-      { id: 'r1', criteria: 'Query Logic', weightPct: 40, maxScore: 4, description: 'Subquery and JOIN efficiency' },
-      { id: 'r2', criteria: 'Indexing Strategy', weightPct: 30, maxScore: 3, description: 'Execution plan optimization' },
-      { id: 'r3', criteria: 'Data Integrity', weightPct: 30, maxScore: 3, description: 'Constraint verification' }
-    ]
-  }
-];
-
-const INITIAL_EXTENSIONS = [
-  {
-    id: 'ext-1',
-    assignmentId: 'asg-1',
-    studentId: 'usr-s2', // Anita Roy
-    studentName: 'Anita Roy',
-    originalDueDate: '2026-09-20T23:59:00',
-    extendedDueDate: '2026-09-23T23:59:00',
-    reason: 'Medical emergency with doctor certificate attached.',
-    status: 'APPROVED',
-    approvedAt: '2026-09-19T10:00:00'
-  }
-];
-
-const INITIAL_SUBMISSIONS = [
-  {
-    id: 'sub-1',
-    assignmentId: 'asg-1',
-    studentId: 'usr-s1', // Rahul Sharma
-    studentName: 'Rahul Sharma',
-    submittedAt: '2026-09-19T14:30:00',
-    content: 'public class Scheduler { ... Process scheduling implementation with RoundRobin queue ... }',
-    fileName: 'OperatingSystems_RahulSharma.zip',
-    similarityPercentage: 7.5,
-    plagiarismStatus: 'ACCEPTED',
-    aiEvaluated: true,
-    aiSuggestedGrade: 7.5,
-    aiRubricBreakdown: { r1: 2.5, r2: 2.0, r3: 1.5, r4: 1.5 },
-    aiFeedback: 'Solid implementation of Round Robin. Explanation of context switching latency could be slightly expanded.',
-    status: 'PENDING_REVIEW', // Pending teacher approval
-    teacherFinalGrade: null,
-    teacherFeedback: '',
-    isBelowThreshold: false
+    id: 'lic-iitb',
+    institutionName: 'IIT Bombay (Indian Institute of Technology)',
+    domainExtension: 'iitb.ac.in',
+    planType: 'ENTERPRISE_ANNUAL',
+    priceInInr: 99999.0,
+    status: 'ACTIVE',
+    aiServicesAllowed: true,
+    createdAt: new Date().toISOString()
   },
   {
-    id: 'sub-2',
-    assignmentId: 'asg-1',
-    studentId: 'usr-s3', // David Miller (Low Scorer Test Case)
-    studentName: 'David Miller',
-    submittedAt: '2026-09-19T18:20:00',
-    content: 'Process scheduler incomplete code file. Missed thread synchronization logic.',
-    fileName: 'OS_Assignment_David.cpp',
-    similarityPercentage: 8.0,
-    plagiarismStatus: 'ACCEPTED',
-    aiEvaluated: true,
-    aiSuggestedGrade: 4.0,
-    aiRubricBreakdown: { r1: 1.5, r2: 1.0, r3: 1.0, r4: 0.5 },
-    aiFeedback: 'Implementation lacks mutex locks and fails edge test cases for deadlock detection.',
-    status: 'FINALIZED',
-    teacherFinalGrade: 4.0, // Below threshold of 5/10 -> FLAGGED
-    teacherFeedback: 'Requires remediation in concurrency concepts. Below minimum threshold.',
-    isBelowThreshold: true
-  },
-  {
-    id: 'sub-3',
-    assignmentId: 'asg-1',
-    studentId: 'usr-s4', // Priya Patel (Plagiarism Test Case)
-    studentName: 'Priya Patel',
-    submittedAt: '2026-09-20T10:15:00',
-    content: 'Copied code snippet directly from public GitHub repository without citation.',
-    fileName: 'OS_Priya.java',
-    similarityPercentage: 24.5, // Exceeds 15% threshold
-    plagiarismStatus: 'FLAGGED_PLAGIARISM',
-    aiEvaluated: false,
-    aiSuggestedGrade: null,
-    aiRubricBreakdown: {},
-    aiFeedback: 'Plagiarism check failed: 24.5% match detected against online repository.',
-    status: 'REJECTED_PLAGIARISM',
-    teacherFinalGrade: 0,
-    teacherFeedback: 'Plagiarism similarity threshold exceeded (24.5% > 15%). Submission rejected.',
-    isBelowThreshold: true
-  }
-];
-
-const INITIAL_NOTIFICATIONS = [
-  {
-    id: 'notif-1',
-    recipientEmail: 'parent.david@example.com',
-    recipientRole: 'PARENT',
-    studentId: 'usr-s3',
-    studentName: 'David Miller',
-    type: 'LOW_SCORE_FLAG',
-    title: 'Academic Alert: Score Below Threshold',
-    message: 'David Miller scored 4.0/10 in Operating Systems Assignment 1, which is below the minimum threshold (5.0/10). Please contact the instructor.',
-    createdAt: '2026-09-19T19:00:00',
-    read: false
-  },
-  {
-    id: 'notif-2',
-    recipientEmail: 'sarah.jenkins@university.edu',
-    recipientRole: 'TEACHER',
-    studentId: 'usr-s4',
-    studentName: 'Priya Patel',
-    type: 'PLAGIARISM_ALERT',
-    title: 'Academic Integrity Alert',
-    message: 'Priya Patel submitted work with 24.5% similarity (Allowed threshold: 15%). Submission automatically flagged.',
-    createdAt: '2026-09-20T10:16:00',
-    read: false
-  }
-];
-
-const INITIAL_CERTIFICATES = [
-  {
-    id: 'cert-1',
-    studentId: 'usr-s1',
-    studentName: 'Rahul Sharma',
-    title: 'National Level Hackathon 2026 - 1st Runner Up',
-    category: 'Hackathon',
-    issuer: 'Smart India Hackathon',
-    issueDate: '2026-08-15',
-    credentialUrl: 'https://example.com/certificates/sih-2026-rahul',
-    description: 'Built an AI-driven automated grading assistant pipeline.',
-    verified: true
-  },
-  {
-    id: 'cert-2',
-    studentId: 'usr-s2',
-    studentName: 'Anita Roy',
-    title: 'Cloud Computing Workshop Certification',
-    category: 'Workshop',
-    issuer: 'AWS Academy',
-    issueDate: '2026-07-20',
-    credentialUrl: 'https://example.com/certificates/aws-anita',
-    description: 'Completed 40 hours of hands-on Docker and Kubernetes orchestration.',
-    verified: true
+    id: 'lic-coep',
+    institutionName: 'COEP Technological University',
+    domainExtension: 'coep.edu.in',
+    planType: 'ENTERPRISE_ANNUAL',
+    priceInInr: 49999.0,
+    status: 'ACTIVE',
+    aiServicesAllowed: true,
+    createdAt: new Date().toISOString()
   }
 ];
 
 const INITIAL_CONFIG = {
   globalDefaultSimilarityThreshold: 15,
   autoEmailParents: true,
-  aiModelProvider: 'Gemini 3.5 Pro (Mock)',
+  aiModelProvider: 'Gemini 3.5 Pro (Spring Boot)',
   systemVersion: 'v1.4.0-PROD'
 };
 
@@ -222,28 +84,116 @@ function getFromStorage(key, fallback) {
     const parsed = JSON.parse(data);
     return (parsed && Array.isArray(fallback) && !Array.isArray(parsed)) ? fallback : (parsed || fallback);
   } catch (e) {
-    console.error(`Error reading ${key} from storage:`, e);
     localStorage.setItem(key, JSON.stringify(fallback));
     return fallback;
   }
 }
 
-
 function saveToStorage(key, data) {
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// HTTP Helper for Spring Boot Backend with Timeout Safety
+async function httpFetch(endpoint, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+      signal: controller.signal,
+      ...options
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      const errorText = await res.text();
+      const err = new Error(errorText || `HTTP error! status: ${res.status}`);
+      err.status = res.status;
+      throw err;
+    }
+    return await res.json();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.status === 409 || err.status === 400) {
+      throw err; // Re-throw validation errors to display on UI
+    }
+    console.warn(`Spring Boot backend fetch for ${endpoint} timed out or failed, falling back to local storage.`);
+    return null; // Signals fallback
+  }
 }
 
 // Service API Object
 export const ApiService = {
   // Users
-  getUsers: () => getFromStorage(STORAGE_KEYS.USERS, INITIAL_USERS),
-  
+  getUsers: async () => {
+    const data = await httpFetch('/users');
+    if (data) {
+      saveToStorage(STORAGE_KEYS.USERS, data);
+      return data;
+    }
+    return getFromStorage(STORAGE_KEYS.USERS, INITIAL_USERS);
+  },
+
+  registerUser: async (userData) => {
+    const cleanEmail = (userData.email || '').trim().toLowerCase();
+
+    // Check frontend cache/storage first for duplicate email
+    const users = getFromStorage(STORAGE_KEYS.USERS, INITIAL_USERS);
+    const existing = (users || []).find(u => u.email && u.email.toLowerCase() === cleanEmail);
+    if (existing) {
+      throw new Error(`An account with email address '${userData.email}' already exists. Please sign in instead.`);
+    }
+
+    try {
+      const backendRes = await httpFetch('/users', {
+        method: 'POST',
+        body: JSON.stringify(userData)
+      });
+      if (backendRes) return backendRes;
+    } catch (err) {
+      if (err.message) throw err;
+    }
+
+    // Local Storage Fallback
+    const newUser = {
+      ...userData,
+      email: cleanEmail,
+      id: `usr-${Date.now()}`,
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'
+    };
+    users.push(newUser);
+    saveToStorage(STORAGE_KEYS.USERS, users);
+    return newUser;
+  },
+
   // Classrooms
-  getClassrooms: () => getFromStorage(STORAGE_KEYS.CLASSROOMS, INITIAL_CLASSROOMS),
-  createClassroom: (classroomData, teacher) => {
-    const classrooms = ApiService.getClassrooms();
-    // Generate a unique 6-character Google Classroom-style code e.g. OS-8X9A
-    const codePrefix = classroomData.name.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'CS');
+  getClassrooms: async () => {
+    const data = await httpFetch('/classrooms');
+    if (data) {
+      saveToStorage(STORAGE_KEYS.CLASSROOMS, data);
+      return data;
+    }
+    return getFromStorage(STORAGE_KEYS.CLASSROOMS, INITIAL_CLASSROOMS);
+  },
+
+  createClassroom: async (classroomData, teacher) => {
+    const backendRes = await httpFetch(`/classrooms?teacherId=${teacher?.id || ''}`, {
+      method: 'POST',
+      body: JSON.stringify(classroomData)
+    });
+
+    if (backendRes) {
+      const classrooms = await ApiService.getClassrooms();
+      return backendRes;
+    }
+
+    // Local Storage Fallback
+    const classrooms = getFromStorage(STORAGE_KEYS.CLASSROOMS, INITIAL_CLASSROOMS);
+    const codePrefix = (classroomData.name || 'CS').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'CS');
     const randomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
     const classCode = `${codePrefix}-${randomCode}`;
 
@@ -253,8 +203,8 @@ export const ApiService = {
       code: classCode,
       description: classroomData.description || 'Google Classroom LMS Course',
       section: classroomData.section || 'Section A',
-      teacherId: teacher?.id || 'usr-t1',
-      teacherName: teacher?.name || 'Prof. Sarah Jenkins',
+      teacherId: teacher?.id || '',
+      teacherName: teacher?.name || 'Instructor',
       studentIds: []
     };
 
@@ -263,8 +213,18 @@ export const ApiService = {
     return newClassroom;
   },
 
-  joinClassroomByCode: (code, studentId) => {
-    const classrooms = ApiService.getClassrooms();
+  joinClassroomByCode: async (code, studentId) => {
+    const backendRes = await httpFetch('/classrooms/join', {
+      method: 'POST',
+      body: JSON.stringify({ code, studentId })
+    });
+
+    if (backendRes) {
+      return backendRes;
+    }
+
+    // Local Storage Fallback
+    const classrooms = getFromStorage(STORAGE_KEYS.CLASSROOMS, INITIAL_CLASSROOMS);
     const cleanCode = code.trim().toUpperCase();
     const targetIndex = classrooms.findIndex(c => c.code.toUpperCase() === cleanCode);
 
@@ -285,24 +245,50 @@ export const ApiService = {
     return { success: true, classroom, message: 'Successfully joined classroom!' };
   },
 
-
   // Assignments
-  getAssignments: () => getFromStorage(STORAGE_KEYS.ASSIGNMENTS, INITIAL_ASSIGNMENTS),
-  createAssignment: (assignment) => {
-    const assignments = ApiService.getAssignments();
-    const newAssignment = {
-      ...assignment,
-      id: `asg-${Date.now()}`
-    };
+  getAssignments: async () => {
+    const data = await httpFetch('/assignments');
+    if (data) {
+      saveToStorage(STORAGE_KEYS.ASSIGNMENTS, data);
+      return data;
+    }
+    return getFromStorage(STORAGE_KEYS.ASSIGNMENTS, INITIAL_ASSIGNMENTS);
+  },
+
+  createAssignment: async (assignment) => {
+    const backendRes = await httpFetch('/assignments', {
+      method: 'POST',
+      body: JSON.stringify(assignment)
+    });
+
+    if (backendRes) return backendRes;
+
+    const assignments = getFromStorage(STORAGE_KEYS.ASSIGNMENTS, INITIAL_ASSIGNMENTS);
+    const newAssignment = { ...assignment, id: `asg-${Date.now()}` };
     assignments.push(newAssignment);
     saveToStorage(STORAGE_KEYS.ASSIGNMENTS, assignments);
     return newAssignment;
   },
 
-  // Extensions (Individual Student Overrides)
-  getExtensions: () => getFromStorage(STORAGE_KEYS.EXTENSIONS, INITIAL_EXTENSIONS),
-  grantExtension: (extensionData) => {
-    const extensions = ApiService.getExtensions();
+  // Extensions
+  getExtensions: async () => {
+    const data = await httpFetch('/extensions');
+    if (data) {
+      saveToStorage(STORAGE_KEYS.EXTENSIONS, data);
+      return data;
+    }
+    return getFromStorage(STORAGE_KEYS.EXTENSIONS, INITIAL_EXTENSIONS);
+  },
+
+  grantExtension: async (extensionData) => {
+    const backendRes = await httpFetch('/extensions', {
+      method: 'POST',
+      body: JSON.stringify(extensionData)
+    });
+
+    if (backendRes) return backendRes;
+
+    const extensions = getFromStorage(STORAGE_KEYS.EXTENSIONS, INITIAL_EXTENSIONS);
     const newExtension = {
       ...extensionData,
       id: `ext-${Date.now()}`,
@@ -315,15 +301,33 @@ export const ApiService = {
   },
 
   // Submissions & AI Grading
-  getSubmissions: () => getFromStorage(STORAGE_KEYS.SUBMISSIONS, INITIAL_SUBMISSIONS),
-  
-  submitAssignment: (submissionData, assignment) => {
-    const submissions = ApiService.getSubmissions();
-    
-    // Simulate Plagiarism/Similarity Check
-    // Calculated based on content length or mock algorithm
+  getSubmissions: async () => {
+    const data = await httpFetch('/submissions');
+    if (data) {
+      saveToStorage(STORAGE_KEYS.SUBMISSIONS, data);
+      return data;
+    }
+    return getFromStorage(STORAGE_KEYS.SUBMISSIONS, INITIAL_SUBMISSIONS);
+  },
+
+  submitAssignment: async (submissionData, assignment) => {
+    const backendRes = await httpFetch('/submissions', {
+      method: 'POST',
+      body: JSON.stringify({
+        assignmentId: submissionData.assignmentId,
+        studentId: submissionData.studentId,
+        studentName: submissionData.studentName,
+        content: submissionData.content,
+        fileName: submissionData.fileName
+      })
+    });
+
+    if (backendRes) return backendRes;
+
+    // Fallback simulation
+    const submissions = getFromStorage(STORAGE_KEYS.SUBMISSIONS, INITIAL_SUBMISSIONS);
     const mockSimilarity = Math.round(Math.random() * 20 * 10) / 10;
-    const isPlagiarized = mockSimilarity > assignment.similarityThreshold;
+    const isPlagiarized = mockSimilarity > (assignment?.similarityThreshold || 15);
 
     let submission = {
       ...submissionData,
@@ -337,34 +341,17 @@ export const ApiService = {
       isBelowThreshold: false
     };
 
-    if (!isPlagiarized) {
-      // Simulate AI Evaluation based on rubric criteria weights
+    if (!isPlagiarized && assignment) {
       const totalMarks = assignment.maximumMarks;
-      // AI score algorithm (random high score sample between 70% and 95%)
       const aiPercentage = 0.75 + (Math.random() * 0.2);
       const aiScore = Math.round(totalMarks * aiPercentage * 10) / 10;
-
       const aiRubricBreakdown = {};
       assignment.rubric.forEach(r => {
         aiRubricBreakdown[r.id] = Math.round((r.maxScore * aiPercentage) * 10) / 10;
       });
-
       submission.aiSuggestedGrade = aiScore;
       submission.aiRubricBreakdown = aiRubricBreakdown;
       submission.aiFeedback = `AI Evaluation: High correlation with rubric requirements. Clear execution of core logic. Suggested grade ${aiScore}/${totalMarks}.`;
-    } else {
-      submission.aiFeedback = `Submission rejected prior to AI grading. Similarity ${mockSimilarity}% exceeds allowed threshold ${assignment.similarityThreshold}%.`;
-      
-      // Auto-trigger notification
-      ApiService.sendNotification({
-        recipientEmail: 'teacher@university.edu',
-        recipientRole: 'TEACHER',
-        studentId: submissionData.studentId,
-        studentName: submissionData.studentName,
-        type: 'PLAGIARISM_ALERT',
-        title: 'Plagiarism Threshold Exceeded',
-        message: `Student ${submissionData.studentName} submitted work with ${mockSimilarity}% similarity (Threshold: ${assignment.similarityThreshold}%).`
-      });
     }
 
     submissions.push(submission);
@@ -372,13 +359,23 @@ export const ApiService = {
     return submission;
   },
 
-  reviewAiGrade: (submissionId, finalScore, teacherComments, assignment) => {
-    const submissions = ApiService.getSubmissions();
+  reviewAiGrade: async (submissionId, finalScore, teacherComments, assignment) => {
+    const backendRes = await httpFetch(`/submissions/${submissionId}/review`, {
+      method: 'POST',
+      body: JSON.stringify({
+        finalScore: parseFloat(finalScore),
+        teacherComments
+      })
+    });
+
+    if (backendRes) return backendRes;
+
+    const submissions = getFromStorage(STORAGE_KEYS.SUBMISSIONS, INITIAL_SUBMISSIONS);
     const index = submissions.findIndex(s => s.id === submissionId);
     if (index === -1) return null;
 
     const sub = submissions[index];
-    const isBelow = finalScore < assignment.minimumThreshold;
+    const isBelow = finalScore < (assignment?.minimumThreshold || 5);
 
     sub.teacherFinalGrade = parseFloat(finalScore);
     sub.teacherFeedback = teacherComments;
@@ -387,57 +384,28 @@ export const ApiService = {
 
     submissions[index] = sub;
     saveToStorage(STORAGE_KEYS.SUBMISSIONS, submissions);
-
-    // If score is below threshold, automatically dispatch notifications to Teacher, Student, and Parent
-    if (isBelow) {
-      const users = ApiService.getUsers();
-      const student = users.find(u => u.id === sub.studentId);
-
-      const notifMessage = `Alert: ${sub.studentName} scored ${finalScore}/${assignment.maximumMarks} in "${assignment.title}", which is below the minimum threshold (${assignment.minimumThreshold}/${assignment.maximumMarks}).`;
-
-      // 1. Student Notification
-      ApiService.sendNotification({
-        recipientEmail: student?.email || 'student@university.edu',
-        recipientRole: 'STUDENT',
-        studentId: sub.studentId,
-        studentName: sub.studentName,
-        type: 'LOW_SCORE_FLAG',
-        title: 'Assignment Score Threshold Alert',
-        message: notifMessage
-      });
-
-      // 2. Parent Notification
-      if (student?.parentEmail) {
-        ApiService.sendNotification({
-          recipientEmail: student.parentEmail,
-          recipientRole: 'PARENT',
-          studentId: sub.studentId,
-          studentName: sub.studentName,
-          type: 'LOW_SCORE_FLAG',
-          title: 'Parent Notification: Academic Performance Threshold',
-          message: notifMessage
-        });
-      }
-
-      // 3. Teacher Notification
-      ApiService.sendNotification({
-        recipientEmail: 'sarah.jenkins@university.edu',
-        recipientRole: 'TEACHER',
-        studentId: sub.studentId,
-        studentName: sub.studentName,
-        type: 'LOW_SCORE_FLAG',
-        title: 'Student Flagged Below Threshold',
-        message: notifMessage
-      });
-    }
-
     return sub;
   },
 
   // Notifications
-  getNotifications: () => getFromStorage(STORAGE_KEYS.NOTIFICATIONS, INITIAL_NOTIFICATIONS),
-  sendNotification: (notifData) => {
-    const notifications = ApiService.getNotifications();
+  getNotifications: async () => {
+    const data = await httpFetch('/notifications');
+    if (data) {
+      saveToStorage(STORAGE_KEYS.NOTIFICATIONS, data);
+      return data;
+    }
+    return getFromStorage(STORAGE_KEYS.NOTIFICATIONS, INITIAL_NOTIFICATIONS);
+  },
+
+  sendNotification: async (notifData) => {
+    const backendRes = await httpFetch('/notifications', {
+      method: 'POST',
+      body: JSON.stringify(notifData)
+    });
+
+    if (backendRes) return backendRes;
+
+    const notifications = getFromStorage(STORAGE_KEYS.NOTIFICATIONS, INITIAL_NOTIFICATIONS);
     const newNotif = {
       ...notifData,
       id: `notif-${Date.now()}`,
@@ -449,10 +417,25 @@ export const ApiService = {
     return newNotif;
   },
 
-  // Certificates & Achievements
-  getCertificates: () => getFromStorage(STORAGE_KEYS.CERTIFICATES, INITIAL_CERTIFICATES),
-  addCertificate: (certData) => {
-    const certificates = ApiService.getCertificates();
+  // Certificates
+  getCertificates: async () => {
+    const data = await httpFetch('/certificates');
+    if (data) {
+      saveToStorage(STORAGE_KEYS.CERTIFICATES, data);
+      return data;
+    }
+    return getFromStorage(STORAGE_KEYS.CERTIFICATES, INITIAL_CERTIFICATES);
+  },
+
+  addCertificate: async (certData) => {
+    const backendRes = await httpFetch('/certificates', {
+      method: 'POST',
+      body: JSON.stringify(certData)
+    });
+
+    if (backendRes) return backendRes;
+
+    const certificates = getFromStorage(STORAGE_KEYS.CERTIFICATES, INITIAL_CERTIFICATES);
     const newCert = {
       ...certData,
       id: `cert-${Date.now()}`,
@@ -463,9 +446,109 @@ export const ApiService = {
     return newCert;
   },
 
+  // Stream Announcements
+  getAnnouncements: async (classroomId) => {
+    const url = classroomId ? `/announcements?classroomId=${classroomId}` : '/announcements';
+    const data = await httpFetch(url);
+    if (data) {
+      saveToStorage(STORAGE_KEYS.ANNOUNCEMENTS, data);
+      return data;
+    }
+    const localAnnouncements = getFromStorage(STORAGE_KEYS.ANNOUNCEMENTS, INITIAL_ANNOUNCEMENTS);
+    if (classroomId) {
+      return localAnnouncements.filter(a => a.classroomId === classroomId);
+    }
+    return localAnnouncements;
+  },
+
+  createAnnouncement: async (announcementData) => {
+    const backendRes = await httpFetch('/announcements', {
+      method: 'POST',
+      body: JSON.stringify(announcementData)
+    });
+
+    if (backendRes) return backendRes;
+
+    const announcements = getFromStorage(STORAGE_KEYS.ANNOUNCEMENTS, INITIAL_ANNOUNCEMENTS);
+    const newAnnouncement = {
+      ...announcementData,
+      id: `ann-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    };
+    announcements.unshift(newAnnouncement);
+    saveToStorage(STORAGE_KEYS.ANNOUNCEMENTS, announcements);
+    return newAnnouncement;
+  },
+
+  // Institutional Licenses (B2B Domain Whitelist)
+  getLicenses: async () => {
+    const data = await httpFetch('/licenses');
+    if (data) {
+      saveToStorage(STORAGE_KEYS.LICENSES, data);
+      return data;
+    }
+    return getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
+  },
+
+  createLicense: async (licenseData) => {
+    const backendRes = await httpFetch('/licenses', {
+      method: 'POST',
+      body: JSON.stringify(licenseData)
+    });
+
+    if (backendRes) return backendRes;
+
+    const licenses = getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
+    const cleanDomain = (licenseData.domainExtension || '').trim().toLowerCase().replace('@', '');
+    const newLicense = {
+      ...licenseData,
+      id: `lic-${Date.now()}`,
+      domainExtension: cleanDomain,
+      status: 'ACTIVE',
+      aiServicesAllowed: true,
+      createdAt: new Date().toISOString()
+    };
+    licenses.unshift(newLicense);
+    saveToStorage(STORAGE_KEYS.LICENSES, licenses);
+    return newLicense;
+  },
+
+  toggleLicense: async (id) => {
+    const backendRes = await httpFetch(`/licenses/${id}/toggle`, {
+      method: 'PUT'
+    });
+
+    if (backendRes) return backendRes;
+
+    const licenses = getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
+    const idx = licenses.findIndex(l => l.id === id);
+    if (idx !== -1) {
+      licenses[idx].status = licenses[idx].status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+      licenses[idx].aiServicesAllowed = licenses[idx].status === 'ACTIVE';
+      saveToStorage(STORAGE_KEYS.LICENSES, licenses);
+      return licenses[idx];
+    }
+    return null;
+  },
+
   // System Configuration
-  getSystemConfig: () => getFromStorage(STORAGE_KEYS.SYSTEM_CONFIG, INITIAL_CONFIG),
-  updateSystemConfig: (config) => {
+  getSystemConfig: async () => {
+    const data = await httpFetch('/config');
+    if (data) {
+      saveToStorage(STORAGE_KEYS.SYSTEM_CONFIG, data);
+      return data;
+    }
+    return getFromStorage(STORAGE_KEYS.SYSTEM_CONFIG, INITIAL_CONFIG);
+  },
+
+  updateSystemConfig: async (config) => {
+    const backendRes = await httpFetch('/config', {
+      method: 'PUT',
+      body: JSON.stringify(config)
+    });
+
+    if (backendRes) return backendRes;
+
     saveToStorage(STORAGE_KEYS.SYSTEM_CONFIG, config);
     return config;
   }
