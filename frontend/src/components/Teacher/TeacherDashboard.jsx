@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useClassroom } from '../../context/ClassroomContext';
 import { useAuth } from '../../context/AuthContext';
-import { exportGradebookToCSV } from '../../utils/csvExporter';
+import { exportGradebookToCSV, exportSingleAssignmentCSV, exportMasterCourseMatrixCSV } from '../../utils/csvExporter';
 import { CreateAssignmentModal } from './CreateAssignmentModal';
 import { AIGradingReviewer } from './AIGradingReviewer';
 import { DeadlineExtensionModal } from './DeadlineExtensionModal';
@@ -18,17 +18,29 @@ import {
   Sparkles, 
   CheckCircle2, 
   Eye,
-  Award
+  Award,
+  Filter,
+  FileSpreadsheet,
+  BookOpen,
+  Layers
 } from 'lucide-react';
 
-export const TeacherDashboard = () => {
+export const TeacherDashboard = ({ classroom }) => {
   const { activeClassroom, assignments, submissions, extensions } = useClassroom();
   const { users } = useAuth();
+
+  const targetClassroom = classroom || activeClassroom;
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [activeTab, setActiveTab] = useState('performance'); // 'performance' | 'certificates'
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState('ALL');
+
+  // Reset selected scope when classroom changes
+  React.useEffect(() => {
+    setSelectedAssignmentId('ALL');
+  }, [targetClassroom?.id]);
 
   const safeUsers = users || [];
   const safeAssignments = assignments || [];
@@ -37,25 +49,85 @@ export const TeacherDashboard = () => {
 
   const students = safeUsers.filter(u => 
     u?.role === 'STUDENT' && 
-    Array.isArray(activeClassroom?.studentIds) && 
-    activeClassroom.studentIds.includes(u.id)
+    Array.isArray(targetClassroom?.studentIds) && 
+    targetClassroom.studentIds.includes(u.id)
   );
-  const classAssignments = safeAssignments.filter(a => a?.classroomId === activeClassroom?.id);
+  const studentIds = students.map(u => u.id);
+  const classAssignments = safeAssignments.filter(a => a?.classroomId === targetClassroom?.id);
+
+  // Active assignment context safely calculated
+  const foundAssignment = (!selectedAssignmentId || selectedAssignmentId === 'ALL') ? null : classAssignments.find(a => a.id === selectedAssignmentId);
+  const isAll = selectedAssignmentId === 'ALL' || !foundAssignment;
+  const activeAssignment = isAll ? null : foundAssignment;
+
+  // Helper to match a submission to an enrolled student
+  const findStudentForSubmission = React.useCallback((sub) => {
+    if (!sub) return null;
+    return students.find(s => 
+      s.id === sub.studentId || 
+      (s.email && sub.studentId && s.email.toLowerCase() === sub.studentId.toLowerCase()) ||
+      (s.email && sub.studentEmail && s.email.toLowerCase() === sub.studentEmail.toLowerCase())
+    );
+  }, [students]);
+
+  // Deduplicate submissions: Keep latest submission per (assignmentId, enrolledStudent.id)
+  const latestStudentSubmissions = React.useMemo(() => {
+    const map = new Map();
+    safeSubmissions.forEach(sub => {
+      if (!sub || !sub.assignmentId) return;
+      const student = findStudentForSubmission(sub);
+      if (!student) return; // Only process submissions belonging to enrolled students in this classroom
+      
+      const key = `${sub.assignmentId}_${student.id}`;
+      const existing = map.get(key);
+      const subTime = sub.submittedAt ? new Date(sub.submittedAt).getTime() : 0;
+      const existingTime = existing?.submittedAt ? new Date(existing.submittedAt).getTime() : 0;
+      
+      if (!existing || subTime >= existingTime) {
+        map.set(key, sub);
+      }
+    });
+    return Array.from(map.values());
+  }, [safeSubmissions, findStudentForSubmission]);
+
+  // Filtered dataset for math & table strictly for enrolled students in this classroom
+  const relevantAssignments = isAll ? classAssignments : (activeAssignment ? [activeAssignment] : []);
+  const relevantSubmissions = isAll 
+    ? latestStudentSubmissions.filter(s => classAssignments.some(a => a.id === s.assignmentId))
+    : latestStudentSubmissions.filter(s => s.assignmentId === activeAssignment?.id);
 
   // Aggregated Analytics Math
   const totalStudentsCount = students.length;
-  const totalExpectedSubmissions = totalStudentsCount * classAssignments.length;
-  const submittedCount = safeSubmissions.length;
+  const totalExpectedSubmissions = isAll ? totalStudentsCount * classAssignments.length : totalStudentsCount;
+  const submittedCount = relevantSubmissions.length;
   const missingCount = Math.max(0, totalExpectedSubmissions - submittedCount);
   
-  const flaggedLowScoreCount = safeSubmissions.filter(s => s?.isBelowThreshold).length;
-  const plagiarismAlertCount = safeSubmissions.filter(s => s?.plagiarismStatus === 'FLAGGED_PLAGIARISM' || (s?.similarityPercentage || 0) > 15).length;
+  const flaggedLowScoreCount = relevantSubmissions.filter(s => s?.isBelowThreshold).length;
+  const plagiarismAlertCount = relevantSubmissions.filter(s => s?.plagiarismStatus === 'FLAGGED_PLAGIARISM' || (s?.similarityPercentage || 0) > 15).length;
 
-  const validGrades = safeSubmissions.map(s => s?.teacherFinalGrade ?? s?.aiSuggestedGrade).filter(g => g !== null && g !== undefined);
-  const avgClassScore = validGrades.length > 0 ? (validGrades.reduce((a, b) => a + b, 0) / validGrades.length).toFixed(1) : 'N/A';
+  const validGrades = relevantSubmissions.map(s => s?.teacherFinalGrade ?? s?.aiSuggestedGrade).filter(g => g !== null && g !== undefined);
+  const avgClassScore = validGrades.length > 0 
+    ? (validGrades.reduce((a, b) => a + b, 0) / validGrades.length).toFixed(1) + (activeAssignment ? ` / ${activeAssignment.maximumMarks}` : '')
+    : 'N/A';
 
   const handleExportCSV = () => {
-    exportGradebookToCSV(safeSubmissions, classAssignments, safeUsers, safeExtensions, `${activeClassroom?.name || 'Class'}_Gradebook.csv`);
+    if (isAll) {
+      exportMasterCourseMatrixCSV(
+        classAssignments, 
+        safeSubmissions, 
+        safeUsers, 
+        targetClassroom?.name || 'Course',
+        `${targetClassroom?.name || 'Class'}_Master_Course_Gradebook.csv`
+      );
+    } else if (activeAssignment) {
+      exportSingleAssignmentCSV(
+        activeAssignment, 
+        safeSubmissions, 
+        safeUsers, 
+        safeExtensions,
+        `${activeAssignment.title.replace(/[^a-zA-Z0-9]/g, '_')}_Gradebook.csv`
+      );
+    }
   };
 
   return (
@@ -65,10 +137,10 @@ export const TeacherDashboard = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>
-            {activeClassroom?.name || 'Teacher Classroom Dashboard'}
+            {targetClassroom?.name || 'Teacher Classroom Dashboard'}
           </h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Code: <strong>{activeClassroom?.code || 'CS-2026'}</strong> • Intelligent Student Progress & AI Oversight Hub
+            Code: <strong>{targetClassroom?.code || 'CS-2026'}</strong> • Intelligent Student Progress & AI Oversight Hub
           </p>
         </div>
 
@@ -79,13 +151,83 @@ export const TeacherDashboard = () => {
           <button onClick={() => setIsExtensionModalOpen(true)} className="btn btn-secondary">
             <Clock size={16} /> Grant Extension
           </button>
-          <button onClick={handleExportCSV} className="btn btn-success">
-            <Download size={16} /> Export CSV Gradebook
+          <button onClick={handleExportCSV} className="btn btn-success" title={isAll ? "Export full Master Matrix Excel/CSV" : "Export Single Assignment CSV"}>
+            <Download size={16} /> {isAll ? 'Export Master Course Gradebook' : `Export ${activeAssignment?.title || 'Assignment'} CSV`}
           </button>
         </div>
       </div>
 
-      {/* Aggregated Analytics Metric Cards */}
+      {/* Clean Dashboard Scope Selector Bar */}
+      <div className="glass-card" style={{ padding: '0.9rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent-indigo)', fontWeight: 700, fontSize: '0.9rem' }}>
+            <Filter size={18} /> Select Assignment Dashboard:
+          </div>
+          
+          <select 
+            value={selectedAssignmentId} 
+            onChange={(e) => setSelectedAssignmentId(e.target.value)}
+            className="form-select"
+            style={{ minWidth: '280px', width: 'auto', padding: '0.45rem 0.9rem', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer' }}
+          >
+            <option value="ALL">📊 All Assignments (Overall Course View)</option>
+            {classAssignments.map((asg) => (
+              <option key={asg.id} value={asg.id}>
+                {asg.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span className={`badge ${isAll ? 'badge-purple' : 'badge-info'}`}>
+            {isAll ? <BookOpen size={12} /> : <FileSpreadsheet size={12} />}
+            {isAll ? `Overall Course View (${classAssignments.length} Assignments)` : activeAssignment?.title}
+          </span>
+        </div>
+      </div>
+
+      {/* Selected Assignment Detailed Overview Banner */}
+      {!isAll && activeAssignment && (
+        <div className="glass-card" style={{ padding: '0.85rem 1.2rem', borderLeft: '4px solid var(--accent-indigo)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '6px', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--accent-indigo)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FileSpreadsheet size={16} />
+            </div>
+            <div>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                Active Assignment: "{activeAssignment.title}"
+              </h4>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                <span>Topic: <strong>{activeAssignment.requiredTopic || 'General Coursework'}</strong></span>
+                <span>•</span>
+                <span>Max Marks: <strong>{activeAssignment.maximumMarks} Pts</strong></span>
+                <span>•</span>
+                <span>Min Passing: <strong>{activeAssignment.minimumThreshold} Pts</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {activeAssignment.allowLateSubmissions ? (
+              <span className="badge badge-purple">
+                ⏰ Late Allowed (-{activeAssignment.latePenaltyPercentage || 10}%)
+              </span>
+            ) : (
+              <span className="badge badge-danger">
+                🔒 Strict Deadline
+              </span>
+            )}
+            {activeAssignment.strictTopicCheck && (
+              <span className="badge badge-info">
+                🎯 AI Topic Check
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Aggregated / Assignment-Specific Analytics Metric Cards */}
       <div className="stats-grid">
         <div className="glass-card stat-card">
           <div className="stat-icon-wrapper" style={{ background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent-blue)' }}>
@@ -103,7 +245,7 @@ export const TeacherDashboard = () => {
           </div>
           <div>
             <div className="stat-val">{submittedCount} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ {totalExpectedSubmissions}</span></div>
-            <div className="stat-lbl">Submissions Handed In</div>
+            <div className="stat-lbl">{isAll ? "Total Submissions Handed In" : "Submissions Received"}</div>
           </div>
         </div>
 
@@ -112,8 +254,8 @@ export const TeacherDashboard = () => {
             <AlertTriangle size={24} />
           </div>
           <div>
-            <div className="stat-val">{flaggedLowScoreCount}</div>
-            <div className="stat-lbl">Flagged Below Threshold</div>
+            <div className="stat-val">{missingCount}</div>
+            <div className="stat-lbl">{isAll ? "Total Missing Submissions" : "Students Missing Submission"}</div>
           </div>
         </div>
 
@@ -133,7 +275,7 @@ export const TeacherDashboard = () => {
           </div>
           <div>
             <div className="stat-val">{avgClassScore}</div>
-            <div className="stat-lbl">Average Score</div>
+            <div className="stat-lbl">{isAll ? "Course Average Score" : "Assignment Average Score"}</div>
           </div>
         </div>
       </div>
@@ -159,9 +301,19 @@ export const TeacherDashboard = () => {
       ) : (
         /* Performance & Submissions Table */
         <div className="glass-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Student-wise & Assignment-wise Performance Matrix</h3>
-            <span className="badge badge-info">Real-time DB Aggregation</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>
+                {isAll ? 'Overall Student Performance & Final Grade Matrix' : `Assignment Performance: "${activeAssignment?.title}"`}
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {isAll ? 'Complete overview of all assignments and student scores.' : `Tracking submissions, AI evaluation, and teacher finalized grades for this assignment.`}
+              </p>
+            </div>
+            
+            <button onClick={handleExportCSV} className="btn btn-sm btn-success" style={{ gap: '0.4rem' }}>
+              <Download size={14} /> {isAll ? 'Export Master Matrix CSV' : 'Export Assignment CSV'}
+            </button>
           </div>
 
           <div className="table-container">
@@ -192,10 +344,10 @@ export const TeacherDashboard = () => {
                     </td>
                   </tr>
                 ) : (
-                  classAssignments.flatMap(asg => 
+                  relevantAssignments.flatMap(asg => 
                     students.map(student => {
-                      const sub = safeSubmissions.find(s => s.assignmentId === asg.id && s.studentId === student.id);
-                      const ext = safeExtensions.find(e => e.assignmentId === asg.id && e.studentId === student.id);
+                      const sub = latestStudentSubmissions.find(s => s.assignmentId === asg.id && findStudentForSubmission(s)?.id === student.id);
+                      const ext = safeExtensions.find(e => e.assignmentId === asg.id && (e.studentId === student.id || (student.email && e.studentId && e.studentId.toLowerCase() === student.email.toLowerCase())));
 
                       let statusBadge = <span className="badge badge-danger">MISSING</span>;
                       if (ext && !sub) {
@@ -203,12 +355,16 @@ export const TeacherDashboard = () => {
                       } else if (sub) {
                         if (sub.plagiarismStatus === 'FLAGGED_PLAGIARISM' || sub.status === 'REJECTED_PLAGIARISM') {
                           statusBadge = <span className="badge badge-danger">REJECTED (PLAGIARISM)</span>;
+                        } else if (sub.status === 'FINALIZED') {
+                          statusBadge = sub.isBelowThreshold ? (
+                            <span className="badge badge-danger">FINALIZED (LOW SCORE)</span>
+                          ) : (
+                            <span className="badge badge-success">TEACHER FINALIZED</span>
+                          );
                         } else if (sub.isBelowThreshold) {
                           statusBadge = <span className="badge badge-danger">FLAGGED LOW SCORE</span>;
-                        } else if (sub.status === 'FINALIZED') {
-                          statusBadge = <span className="badge badge-success">PASS / FINALIZED</span>;
                         } else {
-                          statusBadge = <span className="badge badge-warning">PENDING AI REVIEW</span>;
+                          statusBadge = <span className="badge badge-info">AI GRADED</span>;
                         }
                       }
 
@@ -219,7 +375,7 @@ export const TeacherDashboard = () => {
                             <br />
                             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{student.email}</span>
                           </td>
-                          <td>{asg.title}</td>
+                          <td style={{ fontWeight: 600 }}>{asg.title}</td>
                           <td>{statusBadge}</td>
                           <td>
                             {sub ? (
@@ -245,11 +401,11 @@ export const TeacherDashboard = () => {
                             {sub ? (
                               <button 
                                 onClick={() => setSelectedSubmission({ submission: sub, assignment: asg })}
-                                className={`btn btn-sm ${sub.status === 'PENDING_REVIEW' ? 'btn-primary' : 'btn-secondary'}`}
+                                className={`btn btn-sm ${sub.status === 'FINALIZED' ? 'btn-secondary' : 'btn-primary'}`}
                                 style={{ gap: '0.3rem' }}
                               >
-                                {sub.status === 'PENDING_REVIEW' ? <Sparkles size={14} /> : <Eye size={14} />}
-                                {sub.status === 'PENDING_REVIEW' ? 'Review AI' : 'View Grade'}
+                                {sub.status === 'FINALIZED' ? <Eye size={14} /> : <Sparkles size={14} />}
+                                {sub.status === 'FINALIZED' ? 'Edit / View Grade' : 'Review & Finalize'}
                               </button>
                             ) : (
                               <button 
@@ -285,7 +441,7 @@ export const TeacherDashboard = () => {
 
       {selectedSubmission && (
         <AIGradingReviewer 
-          submission={selectedSubmission.submission} 
+          submission={safeSubmissions.find(s => s.id === selectedSubmission.submission.id) || selectedSubmission.submission} 
           assignment={selectedSubmission.assignment} 
           isOpen={!!selectedSubmission} 
           onClose={() => setSelectedSubmission(null)} 
@@ -295,3 +451,4 @@ export const TeacherDashboard = () => {
     </div>
   );
 };
+

@@ -48,6 +48,22 @@ export const AuthProvider = ({ children }) => {
     }
 
     if (user) {
+      // Check stored credentials map for preserved rollNo & prnNo
+      try {
+        const storedUsers = localStorage.getItem('aicl_users');
+        if (storedUsers) {
+          const parsed = JSON.parse(storedUsers);
+          const matched = (parsed || []).find(u => u.id === user.id || (u.email && u.email.toLowerCase() === cleanEmail));
+          if (matched) {
+            user = {
+              ...user,
+              rollNo: user.rollNo || matched.rollNo || '',
+              prnNo: user.prnNo || matched.prnNo || ''
+            };
+          }
+        }
+      } catch (e) {}
+
       setCurrentUser(user);
       localStorage.setItem('aicl_active_session', JSON.stringify(user));
       return { success: true, user };
@@ -79,13 +95,54 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUserProfile = async (profileData) => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, ...profileData };
+    setCurrentUser(updated);
+    localStorage.setItem('aicl_active_session', JSON.stringify(updated));
+
+    setUsers(prev => {
+      const list = Array.isArray(prev) ? prev : [];
+      return list.map(u => u.id === updated.id ? updated : u);
+    });
+
+    // Send PUT request to Spring Boot backend and sync localStorage
+    try {
+      await ApiService.updateUser(currentUser.id, updated);
+    } catch (e) {
+      console.error('Error syncing user profile update to backend:', e);
+    }
+
+    try {
+      const storedUsers = localStorage.getItem('aicl_users');
+      let newUsers = [];
+      if (storedUsers) {
+        const parsed = JSON.parse(storedUsers);
+        if (Array.isArray(parsed)) {
+          const idx = parsed.findIndex(u => u.id === updated.id);
+          if (idx !== -1) {
+            parsed[idx] = { ...parsed[idx], ...profileData };
+            newUsers = parsed;
+          } else {
+            newUsers = [...parsed, updated];
+          }
+        }
+      } else {
+        newUsers = [updated];
+      }
+      localStorage.setItem('aicl_users', JSON.stringify(newUsers));
+    } catch (e) {
+      console.error('Error persisting user profile update:', e);
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('aicl_active_session');
     setCurrentUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, users, login, register, logout, switchRole, loading }}>
+    <AuthContext.Provider value={{ currentUser, users, login, register, logout, switchRole, updateUserProfile, loading }}>
       {children}
     </AuthContext.Provider>
   );

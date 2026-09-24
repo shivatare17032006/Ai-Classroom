@@ -19,6 +19,12 @@ public class Submission {
     private String content;
 
     private String fileName;
+
+    @Column(columnDefinition = "TEXT")
+    private String fileUrl;
+
+    private String fileType;
+
     private Double similarityPercentage;
     private String plagiarismStatus; // ACCEPTED, FLAGGED_PLAGIARISM
     private Boolean aiEvaluated;
@@ -44,7 +50,7 @@ public class Submission {
     public Submission() {
     }
 
-    public Submission(String id, String assignmentId, String studentId, String studentName, String submittedAt, String content, String fileName, Double similarityPercentage, String plagiarismStatus, Boolean aiEvaluated, Double aiSuggestedGrade, Map<String, Double> aiRubricBreakdown, String aiFeedback, String status, Double teacherFinalGrade, String teacherFeedback, Boolean isBelowThreshold) {
+    public Submission(String id, String assignmentId, String studentId, String studentName, String submittedAt, String content, String fileName, String fileUrl, String fileType, Double similarityPercentage, String plagiarismStatus, Boolean aiEvaluated, Double aiSuggestedGrade, Map<String, Double> aiRubricBreakdown, String aiFeedback, String status, Double teacherFinalGrade, String teacherFeedback, Boolean isBelowThreshold) {
         this.id = id;
         this.assignmentId = assignmentId;
         this.studentId = studentId;
@@ -52,6 +58,8 @@ public class Submission {
         this.submittedAt = submittedAt;
         this.content = content;
         this.fileName = fileName;
+        this.fileUrl = fileUrl;
+        this.fileType = fileType;
         this.similarityPercentage = similarityPercentage;
         this.plagiarismStatus = plagiarismStatus;
         this.aiEvaluated = aiEvaluated;
@@ -84,6 +92,12 @@ public class Submission {
 
     public String getFileName() { return fileName; }
     public void setFileName(String fileName) { this.fileName = fileName; }
+
+    public String getFileUrl() { return fileUrl; }
+    public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
+
+    public String getFileType() { return fileType; }
+    public void setFileType(String fileType) { this.fileType = fileType; }
 
     public Double getSimilarityPercentage() { return similarityPercentage; }
     public void setSimilarityPercentage(Double similarityPercentage) { this.similarityPercentage = similarityPercentage; }
@@ -125,6 +139,8 @@ public class Submission {
         private String submittedAt;
         private String content;
         private String fileName;
+        private String fileUrl;
+        private String fileType;
         private Double similarityPercentage;
         private String plagiarismStatus;
         private Boolean aiEvaluated;
@@ -143,6 +159,8 @@ public class Submission {
         public SubmissionBuilder submittedAt(String submittedAt) { this.submittedAt = submittedAt; return this; }
         public SubmissionBuilder content(String content) { this.content = content; return this; }
         public SubmissionBuilder fileName(String fileName) { this.fileName = fileName; return this; }
+        public SubmissionBuilder fileUrl(String fileUrl) { this.fileUrl = fileUrl; return this; }
+        public SubmissionBuilder fileType(String fileType) { this.fileType = fileType; return this; }
         public SubmissionBuilder similarityPercentage(Double similarityPercentage) { this.similarityPercentage = similarityPercentage; return this; }
         public SubmissionBuilder plagiarismStatus(String plagiarismStatus) { this.plagiarismStatus = plagiarismStatus; return this; }
         public SubmissionBuilder aiEvaluated(Boolean aiEvaluated) { this.aiEvaluated = aiEvaluated; return this; }
@@ -155,7 +173,7 @@ public class Submission {
         public SubmissionBuilder isBelowThreshold(Boolean isBelowThreshold) { this.isBelowThreshold = isBelowThreshold; return this; }
 
         public Submission build() {
-            return new Submission(id, assignmentId, studentId, studentName, submittedAt, content, fileName, similarityPercentage, plagiarismStatus, aiEvaluated, aiSuggestedGrade, aiRubricBreakdown, aiFeedback, status, teacherFinalGrade, teacherFeedback, isBelowThreshold);
+            return new Submission(id, assignmentId, studentId, studentName, submittedAt, content, fileName, fileUrl, fileType, similarityPercentage, plagiarismStatus, aiEvaluated, aiSuggestedGrade, aiRubricBreakdown, aiFeedback, status, teacherFinalGrade, teacherFeedback, isBelowThreshold);
         }
     }
 }

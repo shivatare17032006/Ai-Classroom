@@ -49,6 +49,33 @@ public class SubmissionService {
         Optional<Assignment> assignmentOpt = assignmentRepository.findById(req.getAssignmentId());
         Assignment assignment = assignmentOpt.orElse(null);
 
+        // 1. Lock check: Prevent resubmission if student's previous submission is already finalized
+        List<Submission> existingSubmissions = submissionRepository.findByAssignmentId(req.getAssignmentId());
+        for (Submission existing : existingSubmissions) {
+            if (existing.getStudentId().equals(req.getStudentId()) && "FINALIZED".equals(existing.getStatus())) {
+                throw new IllegalStateException("Submission Locked: You have already submitted this assignment and your grade has been finalized by the instructor.");
+            }
+        }
+
+        // 2. Deadline & Late submission check
+        boolean isLate = false;
+        double penaltyPct = 0.0;
+        if (assignment != null && assignment.getDueDate() != null && !assignment.getDueDate().isEmpty()) {
+            try {
+                LocalDateTime due = LocalDateTime.parse(assignment.getDueDate());
+                if (LocalDateTime.now().isAfter(due)) {
+                    isLate = true;
+                    Boolean allowLate = assignment.getAllowLateSubmissions() != null ? assignment.getAllowLateSubmissions() : true;
+                    if (!allowLate) {
+                        throw new IllegalStateException("Deadline Passed: Submissions for this assignment are closed. Late submissions are not accepted.");
+                    }
+                    penaltyPct = assignment.getLatePenaltyPercentage() != null ? assignment.getLatePenaltyPercentage() : 10.0;
+                }
+            } catch (Exception e) {
+                if (e instanceof IllegalStateException) throw (IllegalStateException) e;
+            }
+        }
+
         double similarityThreshold = assignment != null && assignment.getSimilarityThreshold() != null 
                 ? assignment.getSimilarityThreshold() : 15.0;
 
@@ -56,7 +83,6 @@ public class SubmissionService {
         String nowStr = LocalDateTime.now().toString();
 
         // Perform multi-algorithm Plagiarism Analysis
-        List<Submission> existingSubmissions = submissionRepository.findByAssignmentId(req.getAssignmentId());
         PlagiarismService.PlagiarismReport plagReport = plagiarismService.analyzePlagiarism(
                 submissionId,
                 req.getStudentId(),
@@ -76,6 +102,8 @@ public class SubmissionService {
                 .submittedAt(nowStr)
                 .content(req.getContent())
                 .fileName(req.getFileName())
+                .fileUrl(req.getFileUrl())
+                .fileType(req.getFileType())
                 .similarityPercentage(similarityScore)
                 .plagiarismStatus(isPlagiarized ? "FLAGGED_PLAGIARISM" : "ACCEPTED")
                 .aiEvaluated(!isPlagiarized)
@@ -86,26 +114,44 @@ public class SubmissionService {
 
         if (!isPlagiarized && assignment != null) {
             double totalMarks = assignment.getMaximumMarks() != null ? assignment.getMaximumMarks() : 10.0;
-            double aiPercentage = 0.75 + (Math.random() * 0.2); // 75% - 95%
-            double aiScore = Math.round(totalMarks * aiPercentage * 10.0) / 10.0;
-
-            Map<String, Double> aiRubricBreakdown = new HashMap<>();
             StringBuilder rubricSummary = new StringBuilder();
             if (assignment.getRubric() != null) {
                 for (RubricItem item : assignment.getRubric()) {
                     double maxScore = item.getMaxScore() != null ? item.getMaxScore() : 2.0;
-                    double itemScore = Math.round(maxScore * aiPercentage * 10.0) / 10.0;
-                    aiRubricBreakdown.put(item.getId(), itemScore);
                     rubricSummary.append(item.getCriteria()).append(" (Max ").append(maxScore).append("); ");
                 }
             }
 
-            // Call Gemini 1.5 Pro REST API
+            String assignmentBrief = assignment.getTitle() + ": " + assignment.getDescription() +
+                (assignment.getRequiredTopic() != null ? " [Required Subject/Topic: " + assignment.getRequiredTopic() + "]" : "");
+
+            // Call Gemini 1.5 Pro REST API / Semantic Evaluator
             String geminiFeedback = geminiService.evaluateSubmissionWithGemini(
                 req.getContent(),
-                assignment.getTitle() + ": " + assignment.getDescription(),
+                assignmentBrief,
                 rubricSummary.toString()
             );
+
+            // Parse score ratio (0.0 to 1.0) from Gemini evaluation result
+            double scoreRatio = GeminiService.parseScoreRatio(geminiFeedback);
+            double rawScore = Math.round(totalMarks * scoreRatio * 10.0) / 10.0;
+            double aiScore = rawScore;
+
+            // Apply Late Submission Penalty if submitted after deadline
+            if (isLate && penaltyPct > 0.0) {
+                double penaltyDeduction = Math.round(totalMarks * (penaltyPct / 100.0) * 10.0) / 10.0;
+                aiScore = Math.max(0.0, Math.round((rawScore - penaltyDeduction) * 10.0) / 10.0);
+                geminiFeedback = geminiFeedback + String.format("\n[LATE SUBMISSION PENALTY APPLIED: -%.1f%% (-%.1f marks) deducted for submitting after deadline.]", penaltyPct, penaltyDeduction);
+            }
+
+            Map<String, Double> aiRubricBreakdown = new HashMap<>();
+            if (assignment.getRubric() != null) {
+                for (RubricItem item : assignment.getRubric()) {
+                    double maxScore = item.getMaxScore() != null ? item.getMaxScore() : 2.0;
+                    double itemScore = Math.round(maxScore * scoreRatio * 10.0) / 10.0;
+                    aiRubricBreakdown.put(item.getId(), itemScore);
+                }
+            }
 
             submission.setAiSuggestedGrade(aiScore);
             submission.setAiRubricBreakdown(aiRubricBreakdown);

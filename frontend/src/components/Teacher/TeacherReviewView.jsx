@@ -69,7 +69,7 @@ export const TeacherReviewView = () => {
         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
           {toReviewList.length === 0 ? (
             <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3.5rem 1rem' }}>
-              <CheckCircle2 size={48} color="var(--status-success)" style={{ margin: '0 auto 1rem display' }} />
+              <CheckCircle2 size={48} color="var(--status-success)" style={{ margin: '0 auto 1rem', display: 'block' }} />
               <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>All caught up!</h4>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>There are no student submissions waiting for evaluation.</p>
             </div>
@@ -124,7 +124,7 @@ export const TeacherReviewView = () => {
         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
           {reviewedList.length === 0 ? (
             <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3.5rem 1rem' }}>
-              <Clock size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem display' }} />
+              <Clock size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem', display: 'block' }} />
               <h4 style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>No finalized reviews yet</h4>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Graded student assignments will appear here.</p>
             </div>

@@ -303,9 +303,9 @@ export const ClassroomDetailView = ({ classroom, onBack }) => {
       {/* Tab 2: Classwork View */}
       {activeTab === 'classwork' && (
         currentUser?.role === 'TEACHER' ? (
-          <TeacherDashboard />
+          <TeacherDashboard classroom={classroom} />
         ) : (
-          <StudentDashboard />
+          <StudentDashboard classroom={classroom} />
         )
       )}
 
@@ -357,7 +357,7 @@ export const ClassroomDetailView = ({ classroom, onBack }) => {
 
       {/* Tab 4: Gradebook & AI Analytics View */}
       {activeTab === 'analytics' && currentUser?.role === 'TEACHER' && (
-        <TeacherDashboard />
+        <TeacherDashboard classroom={classroom} />
       )}
 
     </div>

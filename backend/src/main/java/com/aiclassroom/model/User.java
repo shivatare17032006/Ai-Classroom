@@ -17,17 +17,21 @@ public class User {
     private String role; // TEACHER, STUDENT, PARENT, ADMIN
     private String parentEmail;
     private String avatar;
+    private String rollNo;
+    private String prnNo;
 
     public User() {
     }
 
-    public User(String id, String name, String email, String role, String parentEmail, String avatar) {
+    public User(String id, String name, String email, String role, String parentEmail, String avatar, String rollNo, String prnNo) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.role = role;
         this.parentEmail = parentEmail;
         this.avatar = avatar;
+        this.rollNo = rollNo;
+        this.prnNo = prnNo;
     }
 
     public String getId() { return id; }
@@ -48,6 +52,12 @@ public class User {
     public String getAvatar() { return avatar; }
     public void setAvatar(String avatar) { this.avatar = avatar; }
 
+    public String getRollNo() { return rollNo; }
+    public void setRollNo(String rollNo) { this.rollNo = rollNo; }
+
+    public String getPrnNo() { return prnNo; }
+    public void setPrnNo(String prnNo) { this.prnNo = prnNo; }
+
     public static UserBuilder builder() { return new UserBuilder(); }
 
     public static class UserBuilder {
@@ -57,6 +67,8 @@ public class User {
         private String role;
         private String parentEmail;
         private String avatar;
+        private String rollNo;
+        private String prnNo;
 
         public UserBuilder id(String id) { this.id = id; return this; }
         public UserBuilder name(String name) { this.name = name; return this; }
@@ -64,9 +76,11 @@ public class User {
         public UserBuilder role(String role) { this.role = role; return this; }
         public UserBuilder parentEmail(String parentEmail) { this.parentEmail = parentEmail; return this; }
         public UserBuilder avatar(String avatar) { this.avatar = avatar; return this; }
+        public UserBuilder rollNo(String rollNo) { this.rollNo = rollNo; return this; }
+        public UserBuilder prnNo(String prnNo) { this.prnNo = prnNo; return this; }
 
         public User build() {
-            return new User(id, name, email, role, parentEmail, avatar);
+            return new User(id, name, email, role, parentEmail, avatar, rollNo, prnNo);
         }
     }
 }

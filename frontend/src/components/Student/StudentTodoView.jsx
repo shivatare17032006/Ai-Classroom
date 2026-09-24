@@ -96,7 +96,7 @@ export const StudentTodoView = () => {
         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
           {assignedList.length === 0 ? (
             <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3.5rem 1rem' }}>
-              <CheckCircle2 size={48} color="var(--status-success)" style={{ margin: '0 auto 1rem display' }} />
+              <CheckCircle2 size={48} color="var(--status-success)" style={{ margin: '0 auto 1rem', display: 'block' }} />
               <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Woohoo, no work due soon!</h4>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>You have submitted all pending coursework for your enrolled classes.</p>
             </div>
@@ -142,7 +142,7 @@ export const StudentTodoView = () => {
         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
           {missingList.length === 0 ? (
             <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3.5rem 1rem' }}>
-              <CheckCircle2 size={48} color="var(--status-success)" style={{ margin: '0 auto 1rem display' }} />
+              <CheckCircle2 size={48} color="var(--status-success)" style={{ margin: '0 auto 1rem', display: 'block' }} />
               <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>No missing assignments</h4>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Great job keeping up with deadlines!</p>
             </div>
@@ -185,7 +185,7 @@ export const StudentTodoView = () => {
         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
           {doneList.length === 0 ? (
             <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3.5rem 1rem' }}>
-              <Clock size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem display' }} />
+              <Clock size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem', display: 'block' }} />
               <h4 style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>No completed assignments yet</h4>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Submitted coursework will appear here.</p>
             </div>

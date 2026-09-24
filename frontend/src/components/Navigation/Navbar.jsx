@@ -209,7 +209,12 @@ export const Navbar = () => {
                 <UserAvatar name={currentUser?.name || 'User'} avatar={currentUser?.avatar} size={36} />
                 <div>
                   <span style={{ fontSize: '0.8rem', fontWeight: 700, display: 'block' }}>{currentUser?.name}</span>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{currentUser?.email}</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>{currentUser?.email}</span>
+                  {currentUser?.role === 'STUDENT' && (
+                    <span style={{ fontSize: '0.68rem', color: 'var(--accent-indigo)', fontWeight: 600, display: 'block', marginTop: '0.1rem' }}>
+                      Roll: {currentUser?.rollNo || 'N/A'} • PRN: {currentUser?.prnNo || 'N/A'}
+                    </span>
+                  )}
                 </div>
               </div>
               <button 

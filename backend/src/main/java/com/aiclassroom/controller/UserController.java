@@ -52,4 +52,22 @@ public class UserController {
         User saved = userService.saveUser(user);
         return ResponseEntity.ok(saved);
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateUser(@PathVariable String id, @RequestBody User userUpdate) {
+        Optional<User> existingOpt = userService.getUserById(id);
+        if (existingOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        User existing = existingOpt.get();
+        if (userUpdate.getName() != null) existing.setName(userUpdate.getName());
+        if (userUpdate.getParentEmail() != null) existing.setParentEmail(userUpdate.getParentEmail());
+        if (userUpdate.getAvatar() != null) existing.setAvatar(userUpdate.getAvatar());
+        if (userUpdate.getRollNo() != null) existing.setRollNo(userUpdate.getRollNo());
+        if (userUpdate.getPrnNo() != null) existing.setPrnNo(userUpdate.getPrnNo());
+
+        User updated = userService.saveUser(existing);
+        return ResponseEntity.ok(updated);
+    }
 }

@@ -16,6 +16,12 @@ public class Assignment {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    private String requiredTopic;
+    private Boolean strictTopicCheck; // If true, topic/tech mismatch yields 0 marks
+
+    private Boolean allowLateSubmissions; // Enable/Disable late submissions after deadline
+    private Double latePenaltyPercentage; // Penalty % subtracted for late submissions (e.g. 10.0)
+
     private Double maximumMarks;
     private Double minimumThreshold;
     private Double similarityThreshold;
@@ -28,11 +34,15 @@ public class Assignment {
     public Assignment() {
     }
 
-    public Assignment(String id, String classroomId, String title, String description, Double maximumMarks, Double minimumThreshold, Double similarityThreshold, String dueDate, List<RubricItem> rubric) {
+    public Assignment(String id, String classroomId, String title, String description, String requiredTopic, Boolean strictTopicCheck, Boolean allowLateSubmissions, Double latePenaltyPercentage, Double maximumMarks, Double minimumThreshold, Double similarityThreshold, String dueDate, List<RubricItem> rubric) {
         this.id = id;
         this.classroomId = classroomId;
         this.title = title;
         this.description = description;
+        this.requiredTopic = requiredTopic;
+        this.strictTopicCheck = strictTopicCheck != null ? strictTopicCheck : true;
+        this.allowLateSubmissions = allowLateSubmissions != null ? allowLateSubmissions : true;
+        this.latePenaltyPercentage = latePenaltyPercentage != null ? latePenaltyPercentage : 10.0;
         this.maximumMarks = maximumMarks;
         this.minimumThreshold = minimumThreshold;
         this.similarityThreshold = similarityThreshold;
@@ -51,6 +61,18 @@ public class Assignment {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public String getRequiredTopic() { return requiredTopic; }
+    public void setRequiredTopic(String requiredTopic) { this.requiredTopic = requiredTopic; }
+
+    public Boolean getStrictTopicCheck() { return strictTopicCheck; }
+    public void setStrictTopicCheck(Boolean strictTopicCheck) { this.strictTopicCheck = strictTopicCheck; }
+
+    public Boolean getAllowLateSubmissions() { return allowLateSubmissions; }
+    public void setAllowLateSubmissions(Boolean allowLateSubmissions) { this.allowLateSubmissions = allowLateSubmissions; }
+
+    public Double getLatePenaltyPercentage() { return latePenaltyPercentage; }
+    public void setLatePenaltyPercentage(Double latePenaltyPercentage) { this.latePenaltyPercentage = latePenaltyPercentage; }
 
     public Double getMaximumMarks() { return maximumMarks; }
     public void setMaximumMarks(Double maximumMarks) { this.maximumMarks = maximumMarks; }
@@ -74,6 +96,10 @@ public class Assignment {
         private String classroomId;
         private String title;
         private String description;
+        private String requiredTopic;
+        private Boolean strictTopicCheck = true;
+        private Boolean allowLateSubmissions = true;
+        private Double latePenaltyPercentage = 10.0;
         private Double maximumMarks;
         private Double minimumThreshold;
         private Double similarityThreshold;
@@ -84,6 +110,10 @@ public class Assignment {
         public AssignmentBuilder classroomId(String classroomId) { this.classroomId = classroomId; return this; }
         public AssignmentBuilder title(String title) { this.title = title; return this; }
         public AssignmentBuilder description(String description) { this.description = description; return this; }
+        public AssignmentBuilder requiredTopic(String requiredTopic) { this.requiredTopic = requiredTopic; return this; }
+        public AssignmentBuilder strictTopicCheck(Boolean strictTopicCheck) { this.strictTopicCheck = strictTopicCheck; return this; }
+        public AssignmentBuilder allowLateSubmissions(Boolean allowLateSubmissions) { this.allowLateSubmissions = allowLateSubmissions; return this; }
+        public AssignmentBuilder latePenaltyPercentage(Double latePenaltyPercentage) { this.latePenaltyPercentage = latePenaltyPercentage; return this; }
         public AssignmentBuilder maximumMarks(Double maximumMarks) { this.maximumMarks = maximumMarks; return this; }
         public AssignmentBuilder minimumThreshold(Double minimumThreshold) { this.minimumThreshold = minimumThreshold; return this; }
         public AssignmentBuilder similarityThreshold(Double similarityThreshold) { this.similarityThreshold = similarityThreshold; return this; }
@@ -91,7 +121,7 @@ public class Assignment {
         public AssignmentBuilder rubric(List<RubricItem> rubric) { this.rubric = rubric; return this; }
 
         public Assignment build() {
-            return new Assignment(id, classroomId, title, description, maximumMarks, minimumThreshold, similarityThreshold, dueDate, rubric);
+            return new Assignment(id, classroomId, title, description, requiredTopic, strictTopicCheck, allowLateSubmissions, latePenaltyPercentage, maximumMarks, minimumThreshold, similarityThreshold, dueDate, rubric);
         }
     }
 }

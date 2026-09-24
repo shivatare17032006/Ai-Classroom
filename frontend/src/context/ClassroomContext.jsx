@@ -51,6 +51,16 @@ export const ClassroomProvider = ({ children }) => {
       setSystemConfig(loadedConfig || {});
       setLicenses(loadedLicenses || []);
 
+      // Auto-set active classroom if currently null
+      setActiveClassroom(prev => {
+        if (!prev && safeClassrooms.length > 0) return safeClassrooms[0];
+        if (prev) {
+          const matched = safeClassrooms.find(c => c.id === prev.id);
+          return matched || (safeClassrooms.length > 0 ? safeClassrooms[0] : null);
+        }
+        return null;
+      });
+
     } catch (e) {
       console.error('Error refreshing data from backend:', e);
     } finally {
@@ -60,6 +70,22 @@ export const ClassroomProvider = ({ children }) => {
 
   useEffect(() => {
     refreshData();
+
+    // 1. Real-time Polling every 2.5 seconds for instant multi-user / multi-tab sync
+    const interval = setInterval(() => {
+      refreshData();
+    }, 2500);
+
+    // 2. Cross-tab storage change listener
+    const handleStorageChange = () => {
+      refreshData();
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   // Action Creators

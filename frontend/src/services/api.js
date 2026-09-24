@@ -69,11 +69,11 @@ const INITIAL_LICENSES = [
 const INITIAL_CONFIG = {
   globalDefaultSimilarityThreshold: 15,
   autoEmailParents: true,
-  aiModelProvider: 'Gemini 3.5 Pro (Spring Boot)',
+  aiModelProvider: 'Gemini 1.5 Pro (Spring Boot)',
   systemVersion: 'v1.4.0-PROD'
 };
 
-// LocalStorage Helper
+// LocalStorage Helpers
 function getFromStorage(key, fallback) {
   try {
     const data = localStorage.getItem(key);
@@ -97,10 +97,10 @@ function saveToStorage(key, data) {
   }
 }
 
-// HTTP Helper for Spring Boot Backend with Timeout Safety
+// HTTP Helper for Spring Boot Backend with 15-second Timeout Safety
 async function httpFetch(endpoint, options = {}) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 2500);
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout for AI REST requests
 
   try {
     const res = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -121,9 +121,22 @@ async function httpFetch(endpoint, options = {}) {
     if (err.status === 409 || err.status === 400) {
       throw err; // Re-throw validation errors to display on UI
     }
-    console.warn(`Spring Boot backend fetch for ${endpoint} timed out or failed, falling back to local storage.`);
+    console.warn(`Spring Boot backend fetch for ${endpoint} failed/timed out, using local storage sync.`);
     return null; // Signals fallback
   }
+}
+
+// Helper to push or update item in local storage array
+function syncItemToStorage(key, item) {
+  if (!item || !item.id) return;
+  const list = getFromStorage(key, []);
+  const idx = list.findIndex(i => i.id === item.id);
+  if (idx !== -1) {
+    list[idx] = item;
+  } else {
+    list.unshift(item);
+  }
+  saveToStorage(key, list);
 }
 
 // Service API Object
@@ -131,11 +144,47 @@ export const ApiService = {
   // Users
   getUsers: async () => {
     const data = await httpFetch('/users');
-    if (data) {
-      saveToStorage(STORAGE_KEYS.USERS, data);
-      return data;
+    const localUsers = getFromStorage(STORAGE_KEYS.USERS, INITIAL_USERS);
+    
+    if (data && Array.isArray(data)) {
+      // Merge local profile attributes (rollNo, prnNo) onto backend fetched user data
+      const merged = data.map(backendUser => {
+        const localMatch = localUsers.find(lu => lu.id === backendUser.id || (lu.email && backendUser.email && lu.email.toLowerCase() === backendUser.email.toLowerCase()));
+        return {
+          ...backendUser,
+          rollNo: backendUser.rollNo || localMatch?.rollNo || '',
+          prnNo: backendUser.prnNo || localMatch?.prnNo || ''
+        };
+      });
+      saveToStorage(STORAGE_KEYS.USERS, merged);
+      return merged;
     }
-    return getFromStorage(STORAGE_KEYS.USERS, INITIAL_USERS);
+    return localUsers;
+  },
+
+  updateUser: async (userId, userData) => {
+    try {
+      const backendRes = await httpFetch(`/users/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify(userData)
+      });
+      if (backendRes) {
+        syncItemToStorage(STORAGE_KEYS.USERS, backendRes);
+        return backendRes;
+      }
+    } catch (err) {
+      console.warn('Backend updateUser PUT failed, updating local storage:', err.message);
+    }
+
+    // Local Storage Fallback Sync
+    const users = getFromStorage(STORAGE_KEYS.USERS, INITIAL_USERS);
+    const index = users.findIndex(u => u.id === userId || (u.email && userData.email && u.email.toLowerCase() === userData.email.toLowerCase()));
+    if (index !== -1) {
+      users[index] = { ...users[index], ...userData };
+      saveToStorage(STORAGE_KEYS.USERS, users);
+      return users[index];
+    }
+    return userData;
   },
 
   registerUser: async (userData) => {
@@ -153,7 +202,10 @@ export const ApiService = {
         method: 'POST',
         body: JSON.stringify(userData)
       });
-      if (backendRes) return backendRes;
+      if (backendRes) {
+        syncItemToStorage(STORAGE_KEYS.USERS, backendRes);
+        return backendRes;
+      }
     } catch (err) {
       if (err.message) throw err;
     }
@@ -187,7 +239,7 @@ export const ApiService = {
     });
 
     if (backendRes) {
-      const classrooms = await ApiService.getClassrooms();
+      syncItemToStorage(STORAGE_KEYS.CLASSROOMS, backendRes);
       return backendRes;
     }
 
@@ -220,6 +272,9 @@ export const ApiService = {
     });
 
     if (backendRes) {
+      if (backendRes.classroom) {
+        syncItemToStorage(STORAGE_KEYS.CLASSROOMS, backendRes.classroom);
+      }
       return backendRes;
     }
 
@@ -235,13 +290,12 @@ export const ApiService = {
     const classroom = classrooms[targetIndex];
     if (!classroom.studentIds) classroom.studentIds = [];
 
-    if (classroom.studentIds.includes(studentId)) {
-      return { success: true, classroom, message: 'Already enrolled in this classroom.' };
+    if (!classroom.studentIds.includes(studentId)) {
+      classroom.studentIds.push(studentId);
+      classrooms[targetIndex] = classroom;
+      saveToStorage(STORAGE_KEYS.CLASSROOMS, classrooms);
     }
 
-    classroom.studentIds.push(studentId);
-    classrooms[targetIndex] = classroom;
-    saveToStorage(STORAGE_KEYS.CLASSROOMS, classrooms);
     return { success: true, classroom, message: 'Successfully joined classroom!' };
   },
 
@@ -261,11 +315,14 @@ export const ApiService = {
       body: JSON.stringify(assignment)
     });
 
-    if (backendRes) return backendRes;
+    if (backendRes) {
+      syncItemToStorage(STORAGE_KEYS.ASSIGNMENTS, backendRes);
+      return backendRes;
+    }
 
     const assignments = getFromStorage(STORAGE_KEYS.ASSIGNMENTS, INITIAL_ASSIGNMENTS);
     const newAssignment = { ...assignment, id: `asg-${Date.now()}` };
-    assignments.push(newAssignment);
+    assignments.unshift(newAssignment);
     saveToStorage(STORAGE_KEYS.ASSIGNMENTS, assignments);
     return newAssignment;
   },
@@ -286,7 +343,10 @@ export const ApiService = {
       body: JSON.stringify(extensionData)
     });
 
-    if (backendRes) return backendRes;
+    if (backendRes) {
+      syncItemToStorage(STORAGE_KEYS.EXTENSIONS, backendRes);
+      return backendRes;
+    }
 
     const extensions = getFromStorage(STORAGE_KEYS.EXTENSIONS, INITIAL_EXTENSIONS);
     const newExtension = {
@@ -295,7 +355,7 @@ export const ApiService = {
       status: 'APPROVED',
       approvedAt: new Date().toISOString()
     };
-    extensions.push(newExtension);
+    extensions.unshift(newExtension);
     saveToStorage(STORAGE_KEYS.EXTENSIONS, extensions);
     return newExtension;
   },
@@ -318,11 +378,16 @@ export const ApiService = {
         studentId: submissionData.studentId,
         studentName: submissionData.studentName,
         content: submissionData.content,
-        fileName: submissionData.fileName
+        fileName: submissionData.fileName,
+        fileUrl: submissionData.fileUrl,
+        fileType: submissionData.fileType
       })
     });
 
-    if (backendRes) return backendRes;
+    if (backendRes) {
+      syncItemToStorage(STORAGE_KEYS.SUBMISSIONS, backendRes);
+      return backendRes;
+    }
 
     // Fallback simulation
     const submissions = getFromStorage(STORAGE_KEYS.SUBMISSIONS, INITIAL_SUBMISSIONS);
@@ -342,20 +407,50 @@ export const ApiService = {
     };
 
     if (!isPlagiarized && assignment) {
-      const totalMarks = assignment.maximumMarks;
-      const aiPercentage = 0.75 + (Math.random() * 0.2);
-      const aiScore = Math.round(totalMarks * aiPercentage * 10) / 10;
-      const aiRubricBreakdown = {};
-      assignment.rubric.forEach(r => {
-        aiRubricBreakdown[r.id] = Math.round((r.maxScore * aiPercentage) * 10) / 10;
+      const totalMarks = assignment.maximumMarks || 10;
+      const contentText = (submissionData.content || '').toLowerCase();
+      const promptText = ((assignment.title || '') + ' ' + (assignment.description || '') + ' ' + (assignment.requiredTopic || '')).toLowerCase();
+
+      // Extract key terms from prompt
+      const stopWords = new Set(['the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'to', 'in', 'for', 'of', 'with', 'by', 'from', 'write', 'submit', 'assignment', 'solution', 'code', 'problem']);
+      const promptWords = promptText.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
+      
+      let matches = 0;
+      promptWords.forEach(w => {
+        if (contentText.includes(w)) matches++;
       });
+
+      const relevanceRatio = promptWords.length > 0 ? matches / promptWords.length : 0.5;
+
+      let aiScore = 0;
+      let aiFeedbackText = '';
+
+      if (contentText.length < 10 || relevanceRatio < 0.12) {
+        aiScore = 0;
+        aiFeedbackText = `SCORE: 0/${totalMarks} - REJECTED: Submission content is off-topic / irrelevant. Does not answer the required assignment prompt.`;
+      } else if (relevanceRatio < 0.35) {
+        aiScore = Math.round(totalMarks * (0.2 + relevanceRatio) * 10) / 10;
+        aiFeedbackText = `SCORE: ${aiScore}/${totalMarks} - Partial Solution: Submission contains relevant terms but lacks complete coverage of assignment prompt.`;
+      } else {
+        const scoreRatio = Math.min(1.0, 0.75 + (relevanceRatio * 0.25));
+        aiScore = Math.round(totalMarks * scoreRatio * 10) / 10;
+        aiFeedbackText = `SCORE: ${aiScore}/${totalMarks} - High Quality Submission: Strong alignment with assignment prompt requirements and solution structure.`;
+      }
+
+      const aiRubricBreakdown = {};
+      if (assignment.rubric) {
+        const scoreRatio = aiScore / totalMarks;
+        assignment.rubric.forEach(r => {
+          aiRubricBreakdown[r.id] = Math.round((r.maxScore * scoreRatio) * 10) / 10;
+        });
+      }
+
       submission.aiSuggestedGrade = aiScore;
       submission.aiRubricBreakdown = aiRubricBreakdown;
-      submission.aiFeedback = `AI Evaluation: High correlation with rubric requirements. Clear execution of core logic. Suggested grade ${aiScore}/${totalMarks}.`;
+      submission.aiFeedback = aiFeedbackText;
     }
 
-    submissions.push(submission);
-    saveToStorage(STORAGE_KEYS.SUBMISSIONS, submissions);
+    syncItemToStorage(STORAGE_KEYS.SUBMISSIONS, submission);
     return submission;
   },
 
@@ -368,7 +463,10 @@ export const ApiService = {
       })
     });
 
-    if (backendRes) return backendRes;
+    if (backendRes) {
+      syncItemToStorage(STORAGE_KEYS.SUBMISSIONS, backendRes);
+      return backendRes;
+    }
 
     const submissions = getFromStorage(STORAGE_KEYS.SUBMISSIONS, INITIAL_SUBMISSIONS);
     const index = submissions.findIndex(s => s.id === submissionId);
@@ -403,7 +501,10 @@ export const ApiService = {
       body: JSON.stringify(notifData)
     });
 
-    if (backendRes) return backendRes;
+    if (backendRes) {
+      syncItemToStorage(STORAGE_KEYS.NOTIFICATIONS, backendRes);
+      return backendRes;
+    }
 
     const notifications = getFromStorage(STORAGE_KEYS.NOTIFICATIONS, INITIAL_NOTIFICATIONS);
     const newNotif = {
@@ -433,7 +534,10 @@ export const ApiService = {
       body: JSON.stringify(certData)
     });
 
-    if (backendRes) return backendRes;
+    if (backendRes) {
+      syncItemToStorage(STORAGE_KEYS.CERTIFICATES, backendRes);
+      return backendRes;
+    }
 
     const certificates = getFromStorage(STORAGE_KEYS.CERTIFICATES, INITIAL_CERTIFICATES);
     const newCert = {
@@ -467,7 +571,10 @@ export const ApiService = {
       body: JSON.stringify(announcementData)
     });
 
-    if (backendRes) return backendRes;
+    if (backendRes) {
+      syncItemToStorage(STORAGE_KEYS.ANNOUNCEMENTS, backendRes);
+      return backendRes;
+    }
 
     const announcements = getFromStorage(STORAGE_KEYS.ANNOUNCEMENTS, INITIAL_ANNOUNCEMENTS);
     const newAnnouncement = {
@@ -496,7 +603,10 @@ export const ApiService = {
       body: JSON.stringify(licenseData)
     });
 
-    if (backendRes) return backendRes;
+    if (backendRes) {
+      syncItemToStorage(STORAGE_KEYS.LICENSES, backendRes);
+      return backendRes;
+    }
 
     const licenses = getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
     const cleanDomain = (licenseData.domainExtension || '').trim().toLowerCase().replace('@', '');
@@ -518,7 +628,10 @@ export const ApiService = {
       method: 'PUT'
     });
 
-    if (backendRes) return backendRes;
+    if (backendRes) {
+      syncItemToStorage(STORAGE_KEYS.LICENSES, backendRes);
+      return backendRes;
+    }
 
     const licenses = getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
     const idx = licenses.findIndex(l => l.id === id);
@@ -547,7 +660,10 @@ export const ApiService = {
       body: JSON.stringify(config)
     });
 
-    if (backendRes) return backendRes;
+    if (backendRes) {
+      saveToStorage(STORAGE_KEYS.SYSTEM_CONFIG, config);
+      return backendRes;
+    }
 
     saveToStorage(STORAGE_KEYS.SYSTEM_CONFIG, config);
     return config;

@@ -5,9 +5,11 @@ import { X, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export const JoinClassroomModal = ({ isOpen, onClose }) => {
   const { joinClassroom } = useClassroom();
-  const { currentUser } = useAuth();
+  const { currentUser, updateUserProfile } = useAuth();
 
   const [code, setCode] = useState('');
+  const [rollNo, setRollNo] = useState(currentUser?.rollNo || '');
+  const [prnNo, setPrnNo] = useState(currentUser?.prnNo || '');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -19,6 +21,11 @@ export const JoinClassroomModal = ({ isOpen, onClose }) => {
     setSuccess('');
 
     if (!code) return;
+
+    // Save Roll No and PRN No to user profile
+    if (rollNo || prnNo) {
+      updateUserProfile({ rollNo: rollNo.trim(), prnNo: prnNo.trim() });
+    }
 
     const res = joinClassroom(code, currentUser.id);
     if (!res.success) {
@@ -45,7 +52,7 @@ export const JoinClassroomModal = ({ isOpen, onClose }) => {
         </div>
 
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
-          Ask your teacher for the 6-character <strong>Class Code</strong>, then enter it below to access course assignments and grades.
+          Enter the 6-character <strong>Class Join Code</strong> provided by your teacher along with your academic Roll No & PRN No for gradebook exports.
         </p>
 
         {error && (
@@ -72,6 +79,30 @@ export const JoinClassroomModal = ({ isOpen, onClose }) => {
               style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}
               required 
             />
+          </div>
+
+          <div className="grid-2" style={{ marginBottom: '1rem' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Student Roll No</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="e.g. 2201045"
+                value={rollNo} 
+                onChange={e => setRollNo(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Student PRN No</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="e.g. 122B1B045"
+                value={prnNo} 
+                onChange={e => setPrnNo(e.target.value)}
+              />
+            </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>

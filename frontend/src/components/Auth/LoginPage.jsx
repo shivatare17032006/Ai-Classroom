@@ -24,6 +24,8 @@ export const LoginPage = () => {
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regRole, setRegRole] = useState('STUDENT'); // STUDENT | TEACHER
+  const [regRollNo, setRegRollNo] = useState('');
+  const [regPrnNo, setRegPrnNo] = useState('');
   const [regPassword, setRegPassword] = useState('');
 
   const [error, setError] = useState('');
@@ -59,6 +61,8 @@ export const LoginPage = () => {
       name: regName,
       email: regEmail,
       role: regRole,
+      rollNo: regRollNo.trim(),
+      prnNo: regPrnNo.trim(),
       avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'
     });
 
@@ -259,6 +263,31 @@ export const LoginPage = () => {
                 <option value="TEACHER">Teacher</option>
               </select>
             </div>
+
+            {regRole === 'STUDENT' && (
+              <div className="grid-2" style={{ marginBottom: '1rem' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Roll No</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="e.g. 2201045"
+                    value={regRollNo}
+                    onChange={e => setRegRollNo(e.target.value)}
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">PRN No</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="e.g. 122B1B045"
+                    value={regPrnNo}
+                    onChange={e => setRegPrnNo(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="form-group">
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
