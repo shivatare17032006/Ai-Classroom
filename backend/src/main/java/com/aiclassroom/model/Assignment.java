@@ -27,6 +27,10 @@ public class Assignment {
     private Double similarityThreshold;
     private String dueDate;
 
+    private String fileName;
+    private String fileUrl;
+    private String fileType;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "assignment_rubrics", joinColumns = @JoinColumn(name = "assignment_id"))
     private List<RubricItem> rubric = new ArrayList<>();
@@ -34,7 +38,7 @@ public class Assignment {
     public Assignment() {
     }
 
-    public Assignment(String id, String classroomId, String title, String description, String requiredTopic, Boolean strictTopicCheck, Boolean allowLateSubmissions, Double latePenaltyPercentage, Double maximumMarks, Double minimumThreshold, Double similarityThreshold, String dueDate, List<RubricItem> rubric) {
+    public Assignment(String id, String classroomId, String title, String description, String requiredTopic, Boolean strictTopicCheck, Boolean allowLateSubmissions, Double latePenaltyPercentage, Double maximumMarks, Double minimumThreshold, Double similarityThreshold, String dueDate, String fileName, String fileUrl, String fileType, List<RubricItem> rubric) {
         this.id = id;
         this.classroomId = classroomId;
         this.title = title;
@@ -47,6 +51,9 @@ public class Assignment {
         this.minimumThreshold = minimumThreshold;
         this.similarityThreshold = similarityThreshold;
         this.dueDate = dueDate;
+        this.fileName = fileName;
+        this.fileUrl = fileUrl;
+        this.fileType = fileType;
         this.rubric = rubric != null ? rubric : new ArrayList<>();
     }
 
@@ -86,6 +93,15 @@ public class Assignment {
     public String getDueDate() { return dueDate; }
     public void setDueDate(String dueDate) { this.dueDate = dueDate; }
 
+    public String getFileName() { return fileName; }
+    public void setFileName(String fileName) { this.fileName = fileName; }
+
+    public String getFileUrl() { return fileUrl; }
+    public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
+
+    public String getFileType() { return fileType; }
+    public void setFileType(String fileType) { this.fileType = fileType; }
+
     public List<RubricItem> getRubric() { return rubric; }
     public void setRubric(List<RubricItem> rubric) { this.rubric = rubric; }
 
@@ -104,6 +120,9 @@ public class Assignment {
         private Double minimumThreshold;
         private Double similarityThreshold;
         private String dueDate;
+        private String fileName;
+        private String fileUrl;
+        private String fileType;
         private List<RubricItem> rubric = new ArrayList<>();
 
         public AssignmentBuilder id(String id) { this.id = id; return this; }
@@ -118,10 +137,13 @@ public class Assignment {
         public AssignmentBuilder minimumThreshold(Double minimumThreshold) { this.minimumThreshold = minimumThreshold; return this; }
         public AssignmentBuilder similarityThreshold(Double similarityThreshold) { this.similarityThreshold = similarityThreshold; return this; }
         public AssignmentBuilder dueDate(String dueDate) { this.dueDate = dueDate; return this; }
+        public AssignmentBuilder fileName(String fileName) { this.fileName = fileName; return this; }
+        public AssignmentBuilder fileUrl(String fileUrl) { this.fileUrl = fileUrl; return this; }
+        public AssignmentBuilder fileType(String fileType) { this.fileType = fileType; return this; }
         public AssignmentBuilder rubric(List<RubricItem> rubric) { this.rubric = rubric; return this; }
 
         public Assignment build() {
-            return new Assignment(id, classroomId, title, description, requiredTopic, strictTopicCheck, allowLateSubmissions, latePenaltyPercentage, maximumMarks, minimumThreshold, similarityThreshold, dueDate, rubric);
+            return new Assignment(id, classroomId, title, description, requiredTopic, strictTopicCheck, allowLateSubmissions, latePenaltyPercentage, maximumMarks, minimumThreshold, similarityThreshold, dueDate, fileName, fileUrl, fileType, rubric);
         }
     }
 }

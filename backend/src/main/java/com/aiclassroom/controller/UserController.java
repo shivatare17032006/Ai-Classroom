@@ -66,6 +66,8 @@ public class UserController {
         if (userUpdate.getAvatar() != null) existing.setAvatar(userUpdate.getAvatar());
         if (userUpdate.getRollNo() != null) existing.setRollNo(userUpdate.getRollNo());
         if (userUpdate.getPrnNo() != null) existing.setPrnNo(userUpdate.getPrnNo());
+        if (userUpdate.getPlanType() != null) existing.setPlanType(userUpdate.getPlanType());
+        if (userUpdate.getAiCreditsUsed() != null) existing.setAiCreditsUsed(userUpdate.getAiCreditsUsed());
 
         User updated = userService.saveUser(existing);
         return ResponseEntity.ok(updated);

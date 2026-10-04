@@ -18,14 +18,16 @@ public class SubmissionService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final GeminiService geminiService;
+    private final SpringAiGradingService springAiGradingService;
     private final PlagiarismService plagiarismService;
 
-    public SubmissionService(SubmissionRepository submissionRepository, AssignmentRepository assignmentRepository, UserRepository userRepository, NotificationService notificationService, GeminiService geminiService, PlagiarismService plagiarismService) {
+    public SubmissionService(SubmissionRepository submissionRepository, AssignmentRepository assignmentRepository, UserRepository userRepository, NotificationService notificationService, GeminiService geminiService, SpringAiGradingService springAiGradingService, PlagiarismService plagiarismService) {
         this.submissionRepository = submissionRepository;
         this.assignmentRepository = assignmentRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.geminiService = geminiService;
+        this.springAiGradingService = springAiGradingService;
         this.plagiarismService = plagiarismService;
     }
 
@@ -49,11 +51,18 @@ public class SubmissionService {
         Optional<Assignment> assignmentOpt = assignmentRepository.findById(req.getAssignmentId());
         Assignment assignment = assignmentOpt.orElse(null);
 
-        // 1. Lock check: Prevent resubmission if student's previous submission is already finalized
+        // 1. Lock check & Resubmission lookup
         List<Submission> existingSubmissions = submissionRepository.findByAssignmentId(req.getAssignmentId());
+        Submission existingSub = null;
         for (Submission existing : existingSubmissions) {
-            if (existing.getStudentId().equals(req.getStudentId()) && "FINALIZED".equals(existing.getStatus())) {
-                throw new IllegalStateException("Submission Locked: You have already submitted this assignment and your grade has been finalized by the instructor.");
+            boolean isSameStudent = existing.getStudentId().equals(req.getStudentId()) ||
+                (existing.getStudentId() != null && req.getStudentId() != null && existing.getStudentId().equalsIgnoreCase(req.getStudentId()));
+            if (isSameStudent) {
+                if ("FINALIZED".equals(existing.getStatus())) {
+                    throw new IllegalStateException("Submission Locked: You have already submitted this assignment and your grade has been finalized by the instructor.");
+                }
+                existingSub = existing;
+                break;
             }
         }
 
@@ -79,7 +88,7 @@ public class SubmissionService {
         double similarityThreshold = assignment != null && assignment.getSimilarityThreshold() != null 
                 ? assignment.getSimilarityThreshold() : 15.0;
 
-        String submissionId = "sub-" + System.currentTimeMillis();
+        String submissionId = existingSub != null ? existingSub.getId() : ("sub-" + System.currentTimeMillis());
         String nowStr = LocalDateTime.now().toString();
 
         // Perform multi-algorithm Plagiarism Analysis
@@ -94,68 +103,56 @@ public class SubmissionService {
         double similarityScore = plagReport.getSimilarityPercentage();
         boolean isPlagiarized = "FLAGGED_PLAGIARISM".equals(plagReport.getStatus());
 
-        Submission submission = Submission.builder()
-                .id(submissionId)
-                .assignmentId(req.getAssignmentId())
-                .studentId(req.getStudentId())
-                .studentName(req.getStudentName())
-                .submittedAt(nowStr)
-                .content(req.getContent())
-                .fileName(req.getFileName())
-                .fileUrl(req.getFileUrl())
-                .fileType(req.getFileType())
-                .similarityPercentage(similarityScore)
-                .plagiarismStatus(isPlagiarized ? "FLAGGED_PLAGIARISM" : "ACCEPTED")
-                .aiEvaluated(!isPlagiarized)
-                .status(isPlagiarized ? "REJECTED_PLAGIARISM" : "PENDING_REVIEW")
-                .teacherFinalGrade(isPlagiarized ? 0.0 : null)
-                .isBelowThreshold(isPlagiarized)
-                .build();
+        Submission submission = existingSub != null ? existingSub : new Submission();
+        submission.setId(submissionId);
+        submission.setAssignmentId(req.getAssignmentId());
+        submission.setStudentId(req.getStudentId());
+        submission.setStudentName(req.getStudentName());
+        submission.setSubmittedAt(nowStr);
+        submission.setContent(req.getContent());
+        submission.setFileName(req.getFileName());
+        submission.setFileUrl(req.getFileUrl());
+        submission.setFileType(req.getFileType());
+        submission.setSimilarityPercentage(similarityScore);
+        submission.setPlagiarismStatus(isPlagiarized ? "FLAGGED_PLAGIARISM" : "ACCEPTED");
+        submission.setAiEvaluated(!isPlagiarized);
+        submission.setStatus(isPlagiarized ? "REJECTED_PLAGIARISM" : "PENDING_REVIEW");
+        submission.setTeacherFinalGrade(isPlagiarized ? 0.0 : null);
+        submission.setIsBelowThreshold(isPlagiarized);
 
         if (!isPlagiarized && assignment != null) {
             double totalMarks = assignment.getMaximumMarks() != null ? assignment.getMaximumMarks() : 10.0;
-            StringBuilder rubricSummary = new StringBuilder();
+            Map<String, String> rubricCriteriaMap = new HashMap<>();
             if (assignment.getRubric() != null) {
                 for (RubricItem item : assignment.getRubric()) {
-                    double maxScore = item.getMaxScore() != null ? item.getMaxScore() : 2.0;
-                    rubricSummary.append(item.getCriteria()).append(" (Max ").append(maxScore).append("); ");
+                    rubricCriteriaMap.put(item.getId(), item.getCriteria() + " (Max " + (item.getMaxScore() != null ? item.getMaxScore() : 2.0) + ")");
                 }
             }
 
-            String assignmentBrief = assignment.getTitle() + ": " + assignment.getDescription() +
-                (assignment.getRequiredTopic() != null ? " [Required Subject/Topic: " + assignment.getRequiredTopic() + "]" : "");
-
-            // Call Gemini 1.5 Pro REST API / Semantic Evaluator
-            String geminiFeedback = geminiService.evaluateSubmissionWithGemini(
+            // Execute Spring AI Automated Grading Engine
+            SpringAiGradingService.GradingEvaluationResult springAiResult = springAiGradingService.gradeSubmission(
                 req.getContent(),
-                assignmentBrief,
-                rubricSummary.toString()
+                assignment.getTitle(),
+                assignment.getDescription(),
+                assignment.getRequiredTopic(),
+                totalMarks,
+                rubricCriteriaMap
             );
 
-            // Parse score ratio (0.0 to 1.0) from Gemini evaluation result
-            double scoreRatio = GeminiService.parseScoreRatio(geminiFeedback);
-            double rawScore = Math.round(totalMarks * scoreRatio * 10.0) / 10.0;
+            double rawScore = springAiResult.getRawScore();
             double aiScore = rawScore;
+            String feedback = springAiResult.getFeedback();
 
             // Apply Late Submission Penalty if submitted after deadline
             if (isLate && penaltyPct > 0.0) {
                 double penaltyDeduction = Math.round(totalMarks * (penaltyPct / 100.0) * 10.0) / 10.0;
                 aiScore = Math.max(0.0, Math.round((rawScore - penaltyDeduction) * 10.0) / 10.0);
-                geminiFeedback = geminiFeedback + String.format("\n[LATE SUBMISSION PENALTY APPLIED: -%.1f%% (-%.1f marks) deducted for submitting after deadline.]", penaltyPct, penaltyDeduction);
-            }
-
-            Map<String, Double> aiRubricBreakdown = new HashMap<>();
-            if (assignment.getRubric() != null) {
-                for (RubricItem item : assignment.getRubric()) {
-                    double maxScore = item.getMaxScore() != null ? item.getMaxScore() : 2.0;
-                    double itemScore = Math.round(maxScore * scoreRatio * 10.0) / 10.0;
-                    aiRubricBreakdown.put(item.getId(), itemScore);
-                }
+                feedback = feedback + String.format("\n[LATE SUBMISSION PENALTY APPLIED: -%.1f%% (-%.1f marks) deducted for submitting after deadline.]", penaltyPct, penaltyDeduction);
             }
 
             submission.setAiSuggestedGrade(aiScore);
-            submission.setAiRubricBreakdown(aiRubricBreakdown);
-            submission.setAiFeedback(geminiFeedback);
+            submission.setAiRubricBreakdown(springAiResult.getRubricBreakdown());
+            submission.setAiFeedback(feedback);
         } else if (isPlagiarized) {
             submission.setAiFeedback("Submission rejected prior to AI grading. Similarity " + similarityScore + "% exceeds allowed threshold (" + similarityThreshold + "%).");
 
@@ -205,18 +202,7 @@ public class SubmissionService {
 
             String alertMsg = "Alert: " + sub.getStudentName() + " scored " + finalScore + "/" + maxMarks + " in \"" + assignmentTitle + "\", which is below the minimum passing threshold (" + minThreshold + "/" + maxMarks + ").";
 
-            // 1. Student Notification
-            notificationService.sendNotification(Notification.builder()
-                    .recipientEmail(student != null ? student.getEmail() : "student@university.edu")
-                    .recipientRole("STUDENT")
-                    .studentId(sub.getStudentId())
-                    .studentName(sub.getStudentName())
-                    .type("LOW_SCORE_FLAG")
-                    .title("Academic Threshold Alert")
-                    .message(alertMsg)
-                    .build());
-
-            // 2. Parent Notification
+            // 1. Parent Notification (Automated Mail)
             if (student != null && student.getParentEmail() != null && !student.getParentEmail().isEmpty()) {
                 notificationService.sendNotification(Notification.builder()
                         .recipientEmail(student.getParentEmail())
@@ -229,7 +215,7 @@ public class SubmissionService {
                         .build());
             }
 
-            // 3. Teacher Notification
+            // 2. Teacher Notification
             notificationService.sendNotification(Notification.builder()
                     .recipientEmail("sarah.jenkins@university.edu")
                     .recipientRole("TEACHER")

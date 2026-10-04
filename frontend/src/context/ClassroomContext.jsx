@@ -159,6 +159,24 @@ export const ClassroomProvider = ({ children }) => {
     return updated;
   };
 
+  const approveLicense = async (id) => {
+    const updated = await ApiService.approveLicense(id);
+    await refreshData();
+    return updated;
+  };
+
+  const rejectLicense = async (id) => {
+    const updated = await ApiService.rejectLicense(id);
+    await refreshData();
+    return updated;
+  };
+
+  const deleteLicense = async (id) => {
+    const res = await ApiService.deleteLicense(id);
+    await refreshData();
+    return res;
+  };
+
   return (
     <ClassroomContext.Provider value={{
       classrooms,
@@ -184,6 +202,9 @@ export const ClassroomProvider = ({ children }) => {
       updateConfig,
       addLicense,
       toggleLicense,
+      approveLicense,
+      rejectLicense,
+      deleteLicense,
       refreshData
     }}>
       {children}

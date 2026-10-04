@@ -33,38 +33,7 @@ const INITIAL_NOTIFICATIONS = [];
 const INITIAL_CERTIFICATES = [];
 const INITIAL_ANNOUNCEMENTS = [];
 
-const INITIAL_LICENSES = [
-  {
-    id: 'lic-vit',
-    institutionName: 'Vishwakarma Institute of Technology (VIT Pune)',
-    domainExtension: 'vit.edu',
-    planType: 'ENTERPRISE_ANNUAL',
-    priceInInr: 49999.0,
-    status: 'ACTIVE',
-    aiServicesAllowed: true,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'lic-iitb',
-    institutionName: 'IIT Bombay (Indian Institute of Technology)',
-    domainExtension: 'iitb.ac.in',
-    planType: 'ENTERPRISE_ANNUAL',
-    priceInInr: 99999.0,
-    status: 'ACTIVE',
-    aiServicesAllowed: true,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'lic-coep',
-    institutionName: 'COEP Technological University',
-    domainExtension: 'coep.edu.in',
-    planType: 'ENTERPRISE_ANNUAL',
-    priceInInr: 49999.0,
-    status: 'ACTIVE',
-    aiServicesAllowed: true,
-    createdAt: new Date().toISOString()
-  }
-];
+const INITIAL_LICENSES = [];
 
 const INITIAL_CONFIG = {
   globalDefaultSimilarityThreshold: 15,
@@ -97,14 +66,26 @@ function saveToStorage(key, data) {
   }
 }
 
-// HTTP Helper for Spring Boot Backend with 15-second Timeout Safety
+// HTTP Helper for Spring Boot Backend with 15-second Timeout Safety & Cookie Credentials
 async function httpFetch(endpoint, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout for AI REST requests
 
   try {
+    let sessionHeader = {};
+    try {
+      const activeSession = localStorage.getItem('aicl_active_session');
+      if (activeSession) {
+        const parsed = JSON.parse(activeSession);
+        if (parsed && parsed.email) {
+          sessionHeader['X-User-Email'] = parsed.email;
+        }
+      }
+    } catch (e) {}
+
     const res = await fetch(`${API_BASE_URL}${endpoint}`, {
-      headers: { 'Content-Type': 'application/json', ...options.headers },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...sessionHeader, ...options.headers },
       signal: controller.signal,
       ...options
     });
@@ -391,12 +372,17 @@ export const ApiService = {
 
     // Fallback simulation
     const submissions = getFromStorage(STORAGE_KEYS.SUBMISSIONS, INITIAL_SUBMISSIONS);
-    const mockSimilarity = Math.round(Math.random() * 20 * 10) / 10;
+    const existingIdx = submissions.findIndex(s => 
+      s.assignmentId === submissionData.assignmentId && 
+      (s.studentId === submissionData.studentId || (s.studentEmail && submissionData.studentEmail && s.studentEmail.toLowerCase() === submissionData.studentEmail.toLowerCase()))
+    );
+
+    const mockSimilarity = Math.round(Math.random() * 10 * 10) / 10;
     const isPlagiarized = mockSimilarity > (assignment?.similarityThreshold || 15);
 
     let submission = {
       ...submissionData,
-      id: `sub-${Date.now()}`,
+      id: existingIdx !== -1 ? submissions[existingIdx].id : `sub-${Date.now()}`,
       submittedAt: new Date().toISOString(),
       similarityPercentage: mockSimilarity,
       plagiarismStatus: isPlagiarized ? 'FLAGGED_PLAGIARISM' : 'ACCEPTED',
@@ -412,7 +398,7 @@ export const ApiService = {
       const promptText = ((assignment.title || '') + ' ' + (assignment.description || '') + ' ' + (assignment.requiredTopic || '')).toLowerCase();
 
       // Extract key terms from prompt
-      const stopWords = new Set(['the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'to', 'in', 'for', 'of', 'with', 'by', 'from', 'write', 'submit', 'assignment', 'solution', 'code', 'problem']);
+      const stopWords = new Set(['the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'to', 'in', 'for', 'of', 'with', 'by', 'from', 'write', 'submit', 'assignment', 'solution', 'code', 'problem', 'process', 'method', 'program', 'system', 'data', 'app']);
       const promptWords = promptText.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
       
       let matches = 0;
@@ -422,17 +408,24 @@ export const ApiService = {
 
       const relevanceRatio = promptWords.length > 0 ? matches / promptWords.length : 0.5;
 
+      // Required topic check
+      let hasTopicMatch = true;
+      if (assignment.requiredTopic && assignment.requiredTopic.trim().length > 0) {
+        const cleanTopicTokens = assignment.requiredTopic.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
+        hasTopicMatch = cleanTopicTokens.some(t => contentText.includes(t));
+      }
+
       let aiScore = 0;
       let aiFeedbackText = '';
 
-      if (contentText.length < 10 || relevanceRatio < 0.12) {
+      if (!hasTopicMatch || contentText.length < 10 || relevanceRatio < 0.25) {
         aiScore = 0;
-        aiFeedbackText = `SCORE: 0/${totalMarks} - REJECTED: Submission content is off-topic / irrelevant. Does not answer the required assignment prompt.`;
-      } else if (relevanceRatio < 0.35) {
-        aiScore = Math.round(totalMarks * (0.2 + relevanceRatio) * 10) / 10;
-        aiFeedbackText = `SCORE: ${aiScore}/${totalMarks} - Partial Solution: Submission contains relevant terms but lacks complete coverage of assignment prompt.`;
+        aiFeedbackText = `SCORE: 0/${totalMarks} - REJECTED (Off-Topic Submission): Submission content shares insufficient relevance with required assignment topic "${assignment.requiredTopic || assignment.title}". Assigned 0 marks.`;
+      } else if (relevanceRatio < 0.5) {
+        aiScore = Math.round(totalMarks * (relevanceRatio * 0.6) * 10) / 10;
+        aiFeedbackText = `SCORE: ${aiScore}/${totalMarks} - Partial Solution: Submission touches on subject terms but lacks complete technical coverage of assignment prompt.`;
       } else {
-        const scoreRatio = Math.min(1.0, 0.75 + (relevanceRatio * 0.25));
+        const scoreRatio = Math.min(1.0, 0.55 + (relevanceRatio * 0.45));
         aiScore = Math.round(totalMarks * scoreRatio * 10) / 10;
         aiFeedbackText = `SCORE: ${aiScore}/${totalMarks} - High Quality Submission: Strong alignment with assignment prompt requirements and solution structure.`;
       }
@@ -450,7 +443,12 @@ export const ApiService = {
       submission.aiFeedback = aiFeedbackText;
     }
 
-    syncItemToStorage(STORAGE_KEYS.SUBMISSIONS, submission);
+    if (existingIdx !== -1) {
+      submissions[existingIdx] = submission;
+    } else {
+      submissions.unshift(submission);
+    }
+    saveToStorage(STORAGE_KEYS.SUBMISSIONS, submissions);
     return submission;
   },
 
@@ -589,12 +587,22 @@ export const ApiService = {
 
   // Institutional Licenses (B2B Domain Whitelist)
   getLicenses: async () => {
-    const data = await httpFetch('/licenses');
-    if (data) {
-      saveToStorage(STORAGE_KEYS.LICENSES, data);
-      return data;
+    const backendData = await httpFetch('/licenses');
+    const localLicenses = getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
+
+    if (backendData && Array.isArray(backendData)) {
+      const backendIds = new Set(backendData.map(l => l.id));
+      const backendDomains = new Set(backendData.map(l => l.domainExtension ? l.domainExtension.toLowerCase() : ''));
+
+      const localOnly = localLicenses.filter(l => 
+        l.id && !backendIds.has(l.id) && l.domainExtension && !backendDomains.has(l.domainExtension.toLowerCase())
+      );
+
+      const merged = [...backendData, ...localOnly];
+      saveToStorage(STORAGE_KEYS.LICENSES, merged);
+      return merged;
     }
-    return getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
+    return localLicenses;
   },
 
   createLicense: async (licenseData) => {
@@ -610,14 +618,19 @@ export const ApiService = {
 
     const licenses = getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
     const cleanDomain = (licenseData.domainExtension || '').trim().toLowerCase().replace('@', '');
+    const reqStatus = licenseData.status || 'PENDING_VERIFICATION';
     const newLicense = {
       ...licenseData,
       id: `lic-${Date.now()}`,
       domainExtension: cleanDomain,
-      status: 'ACTIVE',
-      aiServicesAllowed: true,
+      status: reqStatus,
+      aiServicesAllowed: reqStatus === 'ACTIVE',
       createdAt: new Date().toISOString()
     };
+    if (reqStatus === 'ACTIVE') {
+      newLicense.approvedAt = new Date().toISOString();
+      newLicense.expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+    }
     licenses.unshift(newLicense);
     saveToStorage(STORAGE_KEYS.LICENSES, licenses);
     return newLicense;
@@ -642,6 +655,63 @@ export const ApiService = {
       return licenses[idx];
     }
     return null;
+  },
+
+  approveLicense: async (id) => {
+    const backendRes = await httpFetch(`/licenses/${id}/approve`, {
+      method: 'PUT'
+    });
+
+    if (backendRes) {
+      syncItemToStorage(STORAGE_KEYS.LICENSES, backendRes);
+      return backendRes;
+    }
+
+    const licenses = getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
+    const idx = licenses.findIndex(l => l.id === id);
+    if (idx !== -1) {
+      const now = new Date();
+      const expires = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+      licenses[idx].status = 'ACTIVE';
+      licenses[idx].aiServicesAllowed = true;
+      licenses[idx].approvedAt = now.toISOString();
+      licenses[idx].expiresAt = expires.toISOString();
+      saveToStorage(STORAGE_KEYS.LICENSES, licenses);
+      return licenses[idx];
+    }
+    return null;
+  },
+
+  rejectLicense: async (id) => {
+    const backendRes = await httpFetch(`/licenses/${id}/reject`, {
+      method: 'PUT'
+    });
+
+    if (backendRes) {
+      syncItemToStorage(STORAGE_KEYS.LICENSES, backendRes);
+      return backendRes;
+    }
+
+    const licenses = getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
+    const idx = licenses.findIndex(l => l.id === id);
+    if (idx !== -1) {
+      licenses[idx].status = 'REJECTED';
+      licenses[idx].aiServicesAllowed = false;
+      saveToStorage(STORAGE_KEYS.LICENSES, licenses);
+      return licenses[idx];
+    }
+    return null;
+  },
+
+  deleteLicense: async (id) => {
+    const backendRes = await httpFetch(`/licenses/${id}`, {
+      method: 'DELETE'
+    });
+
+    const licenses = getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
+    const updated = (licenses || []).filter(l => l.id !== id);
+    saveToStorage(STORAGE_KEYS.LICENSES, updated);
+    return backendRes || { success: true };
   },
 
   // System Configuration

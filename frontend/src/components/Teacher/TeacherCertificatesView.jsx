@@ -1,17 +1,64 @@
 import React, { useState } from 'react';
 import { useClassroom } from '../../context/ClassroomContext';
-import { Award, CheckCircle, ExternalLink, ShieldCheck, Eye, Filter, Search } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Award, CheckCircle, ExternalLink, ShieldCheck, Eye, Filter, Search, BookOpen } from 'lucide-react';
 import { DocumentViewerModal } from '../Common/DocumentViewerModal';
 
-export const TeacherCertificatesView = () => {
-  const { certificates } = useClassroom();
-  const safeCertificates = certificates || [];
+export const TeacherCertificatesView = ({ classroom }) => {
+  const { certificates, classrooms } = useClassroom();
+  const { users, currentUser } = useAuth();
 
+  const safeCertificates = certificates || [];
+  const safeClassrooms = classrooms || [];
+  const safeUsers = users || [];
+
+  // Teacher's classrooms
+  const teacherClassrooms = safeClassrooms.filter(c => c.teacherId === currentUser?.id);
+
+  // Selected classroom state if not passed via props
+  const [selectedClassId, setSelectedClassId] = useState(classroom?.id || 'ALL');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCertPreview, setActiveCertPreview] = useState(null);
 
-  const filteredCertificates = safeCertificates.filter(c => {
+  // Determine active classroom context
+  const activeClass = classroom || (selectedClassId !== 'ALL' ? safeClassrooms.find(c => c.id === selectedClassId) : null);
+
+  // Compute set of enrolled student IDs and Emails
+  const enrolledStudents = React.useMemo(() => {
+    if (activeClass) {
+      const studentIds = Array.isArray(activeClass.studentIds) ? activeClass.studentIds : [];
+      return safeUsers.filter(u => u.role === 'STUDENT' && studentIds.includes(u.id));
+    } else {
+      // If "ALL" classrooms selected for this teacher, collect all students across all teacher's classrooms
+      const allStudentIds = new Set();
+      teacherClassrooms.forEach(c => {
+        if (Array.isArray(c.studentIds)) {
+          c.studentIds.forEach(id => allStudentIds.add(id));
+        }
+      });
+      return safeUsers.filter(u => u.role === 'STUDENT' && allStudentIds.has(u.id));
+    }
+  }, [activeClass, teacherClassrooms, safeUsers]);
+
+  const enrolledStudentIdsSet = React.useMemo(() => {
+    const set = new Set();
+    enrolledStudents.forEach(s => {
+      if (s.id) set.add(s.id);
+      if (s.email) set.add(s.email.toLowerCase());
+    });
+    return set;
+  }, [enrolledStudents]);
+
+  // Filter certificates: ONLY show certificates of students who are ENROLLED in the active classroom context
+  const classroomCertificates = safeCertificates.filter(c => {
+    if (!c || !c.studentId) return false;
+    const certStudentId = c.studentId;
+    const certStudentEmail = c.studentEmail ? c.studentEmail.toLowerCase() : '';
+    return enrolledStudentIdsSet.has(certStudentId) || (certStudentEmail && enrolledStudentIdsSet.has(certStudentEmail));
+  });
+
+  const filteredCertificates = classroomCertificates.filter(c => {
     const matchesCat = selectedCategory === 'ALL' || c.category === selectedCategory;
     const matchesSearch = !searchTerm.trim() || 
       (c.studentName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -25,24 +72,44 @@ export const TeacherCertificatesView = () => {
       
       {/* Header Banner */}
       <div className="glass-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Award color="var(--accent-purple)" size={20} />
-              Student Certificates & Extracurricular Achievements
+              Enrolled Student Certificates & Achievements
             </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Comprehensive profile of student hackathons, competitions, workshops, and technical credentials.
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+              Viewing uploaded credentials for students enrolled in <strong>{activeClass ? activeClass.name : 'your classrooms'}</strong> ({enrolledStudents.length} enrolled students).
             </p>
           </div>
-          <span className="badge badge-purple">{safeCertificates.length} Total Verification Records</span>
+          <span className="badge badge-purple">{filteredCertificates.length} Enrolled Certificates</span>
         </div>
 
-        {/* Filter & Search Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent-purple)', fontWeight: 700, fontSize: '0.88rem' }}>
-              <Filter size={16} /> Filter Category:
+        {/* Classroom & Category Filter Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            
+            {/* Class Dropdown (if not forced by classroom prop) */}
+            {!classroom && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <BookOpen size={16} color="var(--accent-indigo)" />
+                <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>Classroom:</span>
+                <select 
+                  value={selectedClassId}
+                  onChange={e => setSelectedClassId(e.target.value)}
+                  className="form-select"
+                  style={{ width: 'auto', padding: '0.35rem 0.8rem', fontSize: '0.85rem' }}
+                >
+                  <option value="ALL">All My Classrooms ({teacherClassrooms.length})</option>
+                  {teacherClassrooms.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent-purple)', fontWeight: 700, fontSize: '0.85rem' }}>
+              <Filter size={16} /> Category:
             </div>
             
             <select 
@@ -51,7 +118,7 @@ export const TeacherCertificatesView = () => {
               className="form-select"
               style={{ width: 'auto', padding: '0.35rem 0.8rem', fontSize: '0.85rem' }}
             >
-              <option value="ALL">All Categories ({safeCertificates.length})</option>
+              <option value="ALL">All Categories ({classroomCertificates.length})</option>
               <option value="Hackathon">🏆 Hackathons</option>
               <option value="Competition">🥇 Competitions</option>
               <option value="Workshop">💻 Workshops</option>
@@ -61,12 +128,12 @@ export const TeacherCertificatesView = () => {
             </select>
           </div>
 
-          <div style={{ position: 'relative', width: '260px' }}>
+          <div style={{ position: 'relative', width: '250px' }}>
             <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
             <input 
               type="text" 
               className="form-input" 
-              placeholder="Search student or certificate..."
+              placeholder="Search student or title..."
               value={searchTerm} 
               onChange={e => setSearchTerm(e.target.value)}
               style={{ paddingLeft: '2rem', padding: '0.35rem 0.6rem 0.35rem 2rem', fontSize: '0.83rem' }}
@@ -80,8 +147,12 @@ export const TeacherCertificatesView = () => {
         {filteredCertificates.length === 0 ? (
           <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3.5rem 1rem' }}>
             <Award size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem', display: 'block' }} />
-            <h4 style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>No Student Verification Records Found</h4>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>When students upload hackathon, competition, or workshop certificates, they will appear here for verification.</p>
+            <h4 style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>No Student Certificates Found</h4>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
+              {enrolledStudents.length === 0 
+                ? 'There are no enrolled students in this classroom yet.' 
+                : 'Enrolled students in this class have not uploaded any certificates yet.'}
+            </p>
           </div>
         ) : (
           filteredCertificates.map(cert => (
@@ -91,7 +162,9 @@ export const TeacherCertificatesView = () => {
                   <div>
                     <span className="badge badge-info" style={{ marginBottom: '0.4rem' }}>{cert.category}</span>
                     <h4 style={{ fontSize: '0.95rem', fontWeight: 700 }}>{cert.title}</h4>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--accent-blue)', fontWeight: 700 }}>{cert.studentName}</span>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--accent-blue)', fontWeight: 700 }}>
+                      Student: {cert.studentName}
+                    </span>
                   </div>
                   <ShieldCheck color="var(--status-success)" size={22} title="Verified Credential" />
                 </div>

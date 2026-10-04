@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useClassroom } from '../../context/ClassroomContext';
 import { UserAvatar } from '../Common/UserAvatar';
+import ProUpgradeModal from '../Common/ProUpgradeModal';
 import { 
   Sparkles, 
   Bell, 
@@ -10,11 +11,13 @@ import {
   BookOpen, 
   LogOut,
   ShieldAlert,
-  ChevronDown
+  ChevronDown,
+  Zap,
+  Crown
 } from 'lucide-react';
 
-export const Navbar = () => {
-  const { currentUser, logout } = useAuth();
+export const Navbar = ({ onNavigateBilling }) => {
+  const { currentUser, logout, isProUser, getRemainingAiCredits } = useAuth();
   const { classrooms, activeClassroom, setActiveClassroom, notifications } = useClassroom();
   
   const [theme, setTheme] = useState('dark');
@@ -39,7 +42,21 @@ export const Navbar = () => {
     return false;
   });
 
-  const unreadNotifs = (notifications || []).filter(n => !n?.read);
+  // Filter notifications based on role (Admin doesn't receive student threshold alerts)
+  const userNotifs = (notifications || []).filter(n => {
+    if (!n) return false;
+    if (currentUser?.role === 'ADMIN') return false; // Admin manages platform, not classroom alerts
+    if (currentUser?.role === 'TEACHER') {
+      return n.recipientId === currentUser?.id || !n.recipientId;
+    }
+    if (currentUser?.role === 'STUDENT') {
+      if (n.type === 'LOW_SCORE_FLAG') return false;
+      return n.recipientId === currentUser?.id;
+    }
+    return false;
+  });
+
+  const isPro = isProUser(currentUser);
 
   return (
     <header style={{
@@ -57,17 +74,17 @@ export const Navbar = () => {
       {/* Brand Title */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <div style={{
-          background: 'linear-gradient(135deg, var(--accent-indigo), var(--accent-purple))',
+          background: 'linear-gradient(135deg, #163a5f 0%, #1d4ed8 100%)',
           padding: '0.6rem',
           borderRadius: 'var(--radius-md)',
           display: 'flex',
-          boxShadow: 'var(--shadow-glow)'
+          boxShadow: '0 10px 24px rgba(22,58,95,0.14)'
         }}>
           <Sparkles color="#ffffff" size={22} />
         </div>
         <div>
-          <h1 style={{ fontSize: '1.15rem', fontWeight: 800, background: 'linear-gradient(90deg, #38bdf8, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            AI-ENABLED CLASSROOM
+          <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#162033', letterSpacing: '0.02em' }}>
+            AI ENABLED CLASSROOM
           </h1>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
             Academic Management & Evaluation Portal
@@ -92,8 +109,97 @@ export const Navbar = () => {
       )}
 
       {/* Right User Actions & Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
         
+        {/* SaaS Role Badge */}
+        {currentUser?.role === 'ADMIN' ? (
+          <span style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.45rem', 
+            padding: '0.45rem 1.1rem', 
+            borderRadius: '20px', 
+            background: 'rgba(15, 118, 110, 0.10)', 
+            border: '1px solid rgba(15, 118, 110, 0.18)', 
+            color: '#0f766e', 
+            fontSize: '0.78rem', 
+            fontWeight: 800 
+          }}>
+            <Crown size={15} color="#0f766e" />
+            <span>SYSTEM ADMIN</span>
+          </span>
+        ) : currentUser?.role === 'STUDENT' ? (
+          <span style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.4rem', 
+            padding: '0.4rem 0.9rem', 
+            borderRadius: '20px', 
+            background: 'rgba(29, 78, 216, 0.08)', 
+            border: '1px solid rgba(29, 78, 216, 0.16)', 
+            color: 'var(--accent-blue)', 
+            fontSize: '0.78rem', 
+            fontWeight: 700 
+          }}>
+            <BookOpen size={14} color="var(--accent-blue)" />
+            <span>Student Portal</span>
+          </span>
+        ) : isPro ? (
+          <button
+            onClick={() => onNavigateBilling && onNavigateBilling()}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              padding: '0.45rem 1rem', 
+              borderRadius: '20px', 
+              background: 'rgba(15, 118, 110, 0.08)', 
+              border: '1px solid rgba(15, 118, 110, 0.16)', 
+              color: 'var(--status-success)', 
+              fontSize: '0.78rem', 
+              fontWeight: 800,
+              cursor: 'pointer'
+            }}
+            title="Click to view Billing & Subscriptions page"
+          >
+            <Crown size={15} color="var(--status-success)" />
+            <span>{currentUser?.planType === 'INSTITUTIONAL_ENTERPRISE' ? 'INSTITUTION LICENSE' : 'PRO TEACHER'}</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => onNavigateBilling && onNavigateBilling()}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              padding: '0.5rem 1.15rem', 
+              borderRadius: '24px', 
+              background: 'linear-gradient(135deg, #163a5f 0%, #1d4ed8 100%)', 
+              color: '#ffffff', 
+              fontSize: '0.8rem', 
+              fontWeight: 900, 
+              border: 'none',
+              cursor: 'pointer',
+              letterSpacing: '0.03em',
+              transition: 'all 0.25s ease'
+            }}
+            title="Click to view Software Licensing options"
+          >
+            <Sparkles size={15} color="#ffffff" />
+            <span>GET LICENSE</span>
+            <span style={{
+              background: 'rgba(255, 255, 255, 0.18)',
+              padding: '0.15rem 0.5rem',
+              borderRadius: '12px',
+              fontSize: '0.68rem',
+              fontWeight: 800,
+              letterSpacing: '0.04em'
+            }}>
+              ACTIVATE
+            </span>
+          </button>
+        )}
+
         {/* Theme Toggle */}
         <button 
           onClick={toggleTheme} 
@@ -110,7 +216,7 @@ export const Navbar = () => {
             className="btn btn-secondary btn-icon"
           >
             <Bell size={18} />
-            {unreadNotifs.length > 0 && (
+            {userNotifs.length > 0 && (
               <span style={{
                 position: 'absolute',
                 top: '-4px',
@@ -126,7 +232,7 @@ export const Navbar = () => {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                {unreadNotifs.length}
+                {userNotifs.length}
               </span>
             )}
           </button>
@@ -145,14 +251,14 @@ export const Navbar = () => {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Notifications</h4>
-                <span className="badge badge-info">{notifications.length} Total</span>
+                <span className="badge badge-info">{userNotifs.length} Total</span>
               </div>
-              {notifications.length === 0 ? (
+              {userNotifs.length === 0 ? (
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>
                   No notifications.
                 </p>
               ) : (
-                notifications.slice(0, 5).map(n => (
+                userNotifs.slice(0, 5).map(n => (
                   <div key={n.id} style={{
                     padding: '0.75rem',
                     borderRadius: 'var(--radius-sm)',
@@ -201,7 +307,7 @@ export const Navbar = () => {
               position: 'absolute',
               right: 0,
               top: '52px',
-              width: '220px',
+              width: '240px',
               zIndex: 200,
               padding: '0.75rem'
             }}>
@@ -217,6 +323,38 @@ export const Navbar = () => {
                   )}
                 </div>
               </div>
+
+              {currentUser?.role === 'ADMIN' ? (
+                <div style={{ padding: '0.4rem 0.6rem', marginBottom: '0.5rem', background: 'var(--bg-tertiary)', borderRadius: '8px', fontSize: '0.75rem' }}>
+                  <span style={{ color: 'var(--text-muted)', display: 'block' }}>System Management:</span>
+                  <strong style={{ color: '#c084fc' }}>👑 Platform Admin Console</strong>
+                </div>
+              ) : currentUser?.role === 'TEACHER' ? (
+                <>
+                  <div style={{ padding: '0.4rem 0.6rem', marginBottom: '0.5rem', background: 'var(--bg-tertiary)', borderRadius: '8px', fontSize: '0.75rem' }}>
+                    <span style={{ color: 'var(--text-muted)', display: 'block' }}>Active Subscription:</span>
+                    <strong style={{ color: isPro ? 'var(--status-success)' : 'var(--status-danger)' }}>
+                      {isPro ? (currentUser?.planType === 'INSTITUTIONAL_ENTERPRISE' ? 'Institutional Enterprise' : 'Individual Pro Teacher') : '🔒 Unlicensed (License Required)'}
+                    </strong>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      if (onNavigateBilling) onNavigateBilling();
+                    }}
+                    className="w-full mb-2 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Zap size={14} /> {isPro ? 'Billing & Subscriptions' : 'Get Software License'}
+                  </button>
+                </>
+              ) : (
+                <div style={{ padding: '0.4rem 0.6rem', marginBottom: '0.5rem', background: 'var(--bg-tertiary)', borderRadius: '8px', fontSize: '0.75rem' }}>
+                  <span style={{ color: 'var(--text-muted)', display: 'block' }}>Access Status:</span>
+                  <strong style={{ color: 'var(--status-success)' }}>Student Access Provided</strong>
+                </div>
+              )}
+
               <button 
                 onClick={logout}
                 className="btn btn-sm btn-danger"

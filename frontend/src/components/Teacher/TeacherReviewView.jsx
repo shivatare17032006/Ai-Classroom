@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useClassroom } from '../../context/ClassroomContext';
 import { useAuth } from '../../context/AuthContext';
 import { AIGradingReviewer } from './AIGradingReviewer';
+import ProUpgradeModal from '../Common/ProUpgradeModal';
 import { 
   FileCheck, 
   Sparkles, 
@@ -11,12 +12,17 @@ import {
   AlertTriangle 
 } from 'lucide-react';
 
-export const TeacherReviewView = () => {
+export const TeacherReviewView = ({ onNavigateBilling }) => {
   const { classrooms, assignments, submissions } = useClassroom();
-  const { currentUser } = useAuth();
+  const { currentUser, isProUser, getRemainingAiCredits } = useAuth();
 
   const [activeTab, setActiveTab] = useState('to-review'); // 'to-review' | 'reviewed'
   const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [gatedFeatureTitle, setGatedFeatureTitle] = useState('');
+
+  const isPro = isProUser(currentUser);
+  const remainingCredits = getRemainingAiCredits(currentUser);
 
   const teacherId = currentUser?.id || '';
   const teacherClassrooms = (classrooms || []).filter(c => c.teacherId === teacherId);
@@ -27,8 +33,17 @@ export const TeacherReviewView = () => {
 
   const teacherSubmissions = (submissions || []).filter(s => teacherAssignmentIds.includes(s.assignmentId));
 
-  const toReviewList = teacherSubmissions.filter(s => s.status === 'PENDING_REVIEW' || s.status === 'FLAGGED_PLAGIARISM' || s.isBelowThreshold);
+  const toReviewList = teacherSubmissions.filter(s => s.status !== 'FINALIZED' && (s.status === 'PENDING_REVIEW' || s.status === 'FLAGGED_PLAGIARISM' || s.isBelowThreshold));
   const reviewedList = teacherSubmissions.filter(s => s.status === 'FINALIZED');
+
+  const handleOpenReviewer = (sub, asg) => {
+    if (!isPro && remainingCredits <= 0) {
+      setGatedFeatureTitle('AI Evaluation & Rubric Auto-Grading (0 Free AI Credits Left)');
+      setShowUpgradeModal(true);
+      return;
+    }
+    setSelectedSubmission({ submission: sub, assignment: asg });
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -106,7 +121,7 @@ export const TeacherReviewView = () => {
                   </div>
 
                   <button 
-                    onClick={() => setSelectedSubmission({ submission: sub, assignment: asg })}
+                    onClick={() => handleOpenReviewer(sub, asg)}
                     className="btn btn-primary" 
                     style={{ width: '100%', gap: '0.4rem' }}
                   >
@@ -155,7 +170,7 @@ export const TeacherReviewView = () => {
                   </div>
 
                   <button 
-                    onClick={() => setSelectedSubmission({ submission: sub, assignment: asg })}
+                    onClick={() => handleOpenReviewer(sub, asg)}
                     className="btn btn-secondary" 
                     style={{ width: '100%', gap: '0.4rem' }}
                   >
@@ -178,6 +193,14 @@ export const TeacherReviewView = () => {
         />
       )}
 
+      <ProUpgradeModal 
+        isOpen={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)} 
+        featureName={gatedFeatureTitle} 
+        onNavigateBilling={onNavigateBilling} 
+      />
+
     </div>
   );
 };
+

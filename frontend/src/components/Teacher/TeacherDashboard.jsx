@@ -6,6 +6,7 @@ import { CreateAssignmentModal } from './CreateAssignmentModal';
 import { AIGradingReviewer } from './AIGradingReviewer';
 import { DeadlineExtensionModal } from './DeadlineExtensionModal';
 import { TeacherCertificatesView } from './TeacherCertificatesView';
+import ProUpgradeModal from '../Common/ProUpgradeModal';
 import { 
   Users, 
   FileCheck, 
@@ -22,12 +23,13 @@ import {
   Filter,
   FileSpreadsheet,
   BookOpen,
-  Layers
+  Layers,
+  Lock
 } from 'lucide-react';
 
-export const TeacherDashboard = ({ classroom }) => {
+export const TeacherDashboard = ({ classroom, onNavigateBilling }) => {
   const { activeClassroom, assignments, submissions, extensions } = useClassroom();
-  const { users } = useAuth();
+  const { users, currentUser, isProUser, getRemainingAiCredits } = useAuth();
 
   const targetClassroom = classroom || activeClassroom;
 
@@ -36,6 +38,47 @@ export const TeacherDashboard = ({ classroom }) => {
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [activeTab, setActiveTab] = useState('performance'); // 'performance' | 'certificates'
   const [selectedAssignmentId, setSelectedAssignmentId] = useState('ALL');
+
+  // Pro SaaS Gating state
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [gatedFeatureTitle, setGatedFeatureTitle] = useState('');
+
+  const isPro = isProUser(currentUser);
+  const remainingCredits = getRemainingAiCredits(currentUser);
+
+  const handleReviewSubmission = (sub, asg) => {
+    if (!isPro && remainingCredits <= 0) {
+      setGatedFeatureTitle('AI Evaluation & Rubric Auto-Grading (0 Free AI Credits Left)');
+      setShowUpgradeModal(true);
+      return;
+    }
+    setSelectedSubmission({ submission: sub, assignment: asg });
+  };
+
+  const handleExportCSVGated = () => {
+    if (!isPro) {
+      setGatedFeatureTitle('Master Gradebook & CSV Analytics Export');
+      setShowUpgradeModal(true);
+      return;
+    }
+    if (isAll) {
+      exportMasterCourseMatrixCSV(
+        classAssignments, 
+        safeSubmissions, 
+        students, 
+        targetClassroom?.name || 'Course',
+        `${(targetClassroom?.name || 'Class').replace(/[^a-zA-Z0-9]/g, '_')}_Master_Course_Gradebook.csv`
+      );
+    } else if (activeAssignment) {
+      exportSingleAssignmentCSV(
+        activeAssignment, 
+        safeSubmissions, 
+        students, 
+        safeExtensions,
+        `${activeAssignment.title.replace(/[^a-zA-Z0-9]/g, '_')}_Gradebook.csv`
+      );
+    }
+  };
 
   // Reset selected scope when classroom changes
   React.useEffect(() => {
@@ -151,7 +194,7 @@ export const TeacherDashboard = ({ classroom }) => {
           <button onClick={() => setIsExtensionModalOpen(true)} className="btn btn-secondary">
             <Clock size={16} /> Grant Extension
           </button>
-          <button onClick={handleExportCSV} className="btn btn-success" title={isAll ? "Export full Master Matrix Excel/CSV" : "Export Single Assignment CSV"}>
+          <button onClick={handleExportCSVGated} className="btn btn-success" title={isAll ? "Export full Master Matrix Excel/CSV" : "Export Single Assignment CSV"}>
             <Download size={16} /> {isAll ? 'Export Master Course Gradebook' : `Export ${activeAssignment?.title || 'Assignment'} CSV`}
           </button>
         </div>
@@ -297,7 +340,7 @@ export const TeacherDashboard = ({ classroom }) => {
       </div>
 
       {activeTab === 'certificates' ? (
-        <TeacherCertificatesView />
+        <TeacherCertificatesView classroom={targetClassroom} />
       ) : (
         /* Performance & Submissions Table */
         <div className="glass-card">
@@ -311,7 +354,7 @@ export const TeacherDashboard = ({ classroom }) => {
               </p>
             </div>
             
-            <button onClick={handleExportCSV} className="btn btn-sm btn-success" style={{ gap: '0.4rem' }}>
+            <button onClick={handleExportCSVGated} className="btn btn-sm btn-success" style={{ gap: '0.4rem' }}>
               <Download size={14} /> {isAll ? 'Export Master Matrix CSV' : 'Export Assignment CSV'}
             </button>
           </div>
@@ -400,7 +443,7 @@ export const TeacherDashboard = ({ classroom }) => {
                           <td>
                             {sub ? (
                               <button 
-                                onClick={() => setSelectedSubmission({ submission: sub, assignment: asg })}
+                                onClick={() => handleReviewSubmission(sub, asg)}
                                 className={`btn btn-sm ${sub.status === 'FINALIZED' ? 'btn-secondary' : 'btn-primary'}`}
                                 style={{ gap: '0.3rem' }}
                               >
@@ -447,6 +490,13 @@ export const TeacherDashboard = ({ classroom }) => {
           onClose={() => setSelectedSubmission(null)} 
         />
       )}
+
+      <ProUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        featureName={gatedFeatureTitle}
+        onNavigateBilling={onNavigateBilling}
+      />
 
     </div>
   );

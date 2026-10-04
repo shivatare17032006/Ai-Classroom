@@ -39,41 +39,9 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(admin);
         }
 
-        // Initialize sample B2B Institutional Subscriptions if empty
-        if (licenseRepository.findAll().isEmpty()) {
-            licenseRepository.save(InstitutionLicense.builder()
-                    .id("lic-vit")
-                    .institutionName("Vishwakarma Institute of Technology (VIT Pune)")
-                    .domainExtension("vit.edu")
-                    .planType("ENTERPRISE_ANNUAL")
-                    .priceInInr(49999.0)
-                    .status("ACTIVE")
-                    .aiServicesAllowed(true)
-                    .createdAt(LocalDateTime.now())
-                    .build());
-
-            licenseRepository.save(InstitutionLicense.builder()
-                    .id("lic-iitb")
-                    .institutionName("IIT Bombay (Indian Institute of Technology)")
-                    .domainExtension("iitb.ac.in")
-                    .planType("ENTERPRISE_ANNUAL")
-                    .priceInInr(99999.0)
-                    .status("ACTIVE")
-                    .aiServicesAllowed(true)
-                    .createdAt(LocalDateTime.now())
-                    .build());
-
-            licenseRepository.save(InstitutionLicense.builder()
-                    .id("lic-coep")
-                    .institutionName("COEP Technological University")
-                    .domainExtension("coep.edu.in")
-                    .planType("ENTERPRISE_ANNUAL")
-                    .priceInInr(49999.0)
-                    .status("ACTIVE")
-                    .aiServicesAllowed(true)
-                    .createdAt(LocalDateTime.now())
-                    .build());
-        }
+        // Initial B2B Institutional Subscriptions start completely empty until applied & verified by Admin
+        // Wipe any legacy pre-seeded test licenses from database
+        licenseRepository.deleteAll();
 
         // Initialize system config if not present
         List<SystemConfig> configs = configRepository.findAll();

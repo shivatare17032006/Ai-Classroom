@@ -4,7 +4,8 @@ import {
   BookOpen, 
   Award, 
   Shield,
-  CheckSquare
+  CheckSquare,
+  Crown
 } from 'lucide-react';
 
 export const Sidebar = ({ activeTab, setActiveTab }) => {
@@ -30,7 +31,7 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
         overflowY: 'auto'
       }}>
         <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 0.5rem 0.5rem 0.5rem' }}>
-          Admin Product Console
+          Admin Console
         </div>
 
         <button 
@@ -38,7 +39,7 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
           className={`btn ${activeTab === 'admin' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ justifyContent: 'flex-start', width: '100%', gap: '0.6rem', fontWeight: 700 }}
         >
-          <Shield size={18} /> SaaS Monetization Hub
+          <Shield size={18} /> Platform Overview
         </button>
       </aside>
     );
@@ -88,6 +89,16 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
       >
         <Award size={18} /> Certificates & Achievements
       </button>
+
+      {role === 'TEACHER' && (
+        <button 
+          onClick={() => setActiveTab('billing')} 
+          className={`btn ${activeTab === 'billing' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ justifyContent: 'flex-start', width: '100%', gap: '0.6rem' }}
+        >
+          <Crown size={18} color="var(--accent-purple)" /> Billing & Pro Licensing
+        </button>
+      )}
     </aside>
   );
 };

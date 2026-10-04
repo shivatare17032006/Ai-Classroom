@@ -6,7 +6,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary';
 import { getFileType } from '../../utils/fileExtractor';
 import { DocumentViewerModal } from '../Common/DocumentViewerModal';
 
-export const CertificateLocker = () => {
+export const CertificateLocker = ({ classroom }) => {
   const { certificates, uploadCertificate } = useClassroom();
   const { currentUser } = useAuth();
 
@@ -98,10 +98,10 @@ export const CertificateLocker = () => {
         <div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Award color="var(--accent-purple)" size={24} />
-            My Achievements & Certificate Locker
+            My Achievements & Certificate Locker {classroom ? `• ${classroom.name}` : ''}
           </h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Upload hackathon credentials, competition certificates, and technical achievements. Verified by Cloudinary & Teachers.
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+            Upload your certificates once. They will be visible <strong>only to instructors of classrooms in which you are enrolled</strong>.
           </p>
         </div>
 

@@ -17,6 +17,9 @@ public class Certificate {
     private String issuer;
     private String issueDate;
     private String credentialUrl;
+    private String fileUrl;
+    private String fileName;
+    private String fileType;
 
     @Column(columnDefinition = "TEXT")
     private String description;
@@ -26,7 +29,7 @@ public class Certificate {
     public Certificate() {
     }
 
-    public Certificate(String id, String studentId, String studentName, String title, String category, String issuer, String issueDate, String credentialUrl, String description, Boolean verified) {
+    public Certificate(String id, String studentId, String studentName, String title, String category, String issuer, String issueDate, String credentialUrl, String fileUrl, String fileName, String fileType, String description, Boolean verified) {
         this.id = id;
         this.studentId = studentId;
         this.studentName = studentName;
@@ -35,6 +38,9 @@ public class Certificate {
         this.issuer = issuer;
         this.issueDate = issueDate;
         this.credentialUrl = credentialUrl;
+        this.fileUrl = fileUrl;
+        this.fileName = fileName;
+        this.fileType = fileType;
         this.description = description;
         this.verified = verified;
     }
@@ -63,6 +69,15 @@ public class Certificate {
     public String getCredentialUrl() { return credentialUrl; }
     public void setCredentialUrl(String credentialUrl) { this.credentialUrl = credentialUrl; }
 
+    public String getFileUrl() { return fileUrl; }
+    public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
+
+    public String getFileName() { return fileName; }
+    public void setFileName(String fileName) { this.fileName = fileName; }
+
+    public String getFileType() { return fileType; }
+    public void setFileType(String fileType) { this.fileType = fileType; }
+
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
@@ -80,6 +95,9 @@ public class Certificate {
         private String issuer;
         private String issueDate;
         private String credentialUrl;
+        private String fileUrl;
+        private String fileName;
+        private String fileType;
         private String description;
         private Boolean verified;
 
@@ -91,11 +109,14 @@ public class Certificate {
         public CertificateBuilder issuer(String issuer) { this.issuer = issuer; return this; }
         public CertificateBuilder issueDate(String issueDate) { this.issueDate = issueDate; return this; }
         public CertificateBuilder credentialUrl(String credentialUrl) { this.credentialUrl = credentialUrl; return this; }
+        public CertificateBuilder fileUrl(String fileUrl) { this.fileUrl = fileUrl; return this; }
+        public CertificateBuilder fileName(String fileName) { this.fileName = fileName; return this; }
+        public CertificateBuilder fileType(String fileType) { this.fileType = fileType; return this; }
         public CertificateBuilder description(String description) { this.description = description; return this; }
         public CertificateBuilder verified(Boolean verified) { this.verified = verified; return this; }
 
         public Certificate build() {
-            return new Certificate(id, studentId, studentName, title, category, issuer, issueDate, credentialUrl, description, verified);
+            return new Certificate(id, studentId, studentName, title, category, issuer, issueDate, credentialUrl, fileUrl, fileName, fileType, description, verified);
         }
     }
 }

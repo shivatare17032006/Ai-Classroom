@@ -18,18 +18,25 @@ public class Announcement {
     @Column(columnDefinition = "TEXT")
     private String content;
 
+    private String fileName;
+    private String fileUrl;
+    private String fileType;
+
     private LocalDateTime createdAt;
 
     public Announcement() {
     }
 
-    public Announcement(String id, String classroomId, String authorId, String authorName, String authorRole, String content, LocalDateTime createdAt) {
+    public Announcement(String id, String classroomId, String authorId, String authorName, String authorRole, String content, String fileName, String fileUrl, String fileType, LocalDateTime createdAt) {
         this.id = id;
         this.classroomId = classroomId;
         this.authorId = authorId;
         this.authorName = authorName;
         this.authorRole = authorRole;
         this.content = content;
+        this.fileName = fileName;
+        this.fileUrl = fileUrl;
+        this.fileType = fileType;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
     }
 
@@ -51,6 +58,15 @@ public class Announcement {
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
 
+    public String getFileName() { return fileName; }
+    public void setFileName(String fileName) { this.fileName = fileName; }
+
+    public String getFileUrl() { return fileUrl; }
+    public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
+
+    public String getFileType() { return fileType; }
+    public void setFileType(String fileType) { this.fileType = fileType; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
@@ -63,6 +79,9 @@ public class Announcement {
         private String authorName;
         private String authorRole;
         private String content;
+        private String fileName;
+        private String fileUrl;
+        private String fileType;
         private LocalDateTime createdAt;
 
         public AnnouncementBuilder id(String id) { this.id = id; return this; }
@@ -71,10 +90,13 @@ public class Announcement {
         public AnnouncementBuilder authorName(String authorName) { this.authorName = authorName; return this; }
         public AnnouncementBuilder authorRole(String authorRole) { this.authorRole = authorRole; return this; }
         public AnnouncementBuilder content(String content) { this.content = content; return this; }
+        public AnnouncementBuilder fileName(String fileName) { this.fileName = fileName; return this; }
+        public AnnouncementBuilder fileUrl(String fileUrl) { this.fileUrl = fileUrl; return this; }
+        public AnnouncementBuilder fileType(String fileType) { this.fileType = fileType; return this; }
         public AnnouncementBuilder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
 
         public Announcement build() {
-            return new Announcement(id, classroomId, authorId, authorName, authorRole, content, createdAt);
+            return new Announcement(id, classroomId, authorId, authorName, authorRole, content, fileName, fileUrl, fileType, createdAt);
         }
     }
 }

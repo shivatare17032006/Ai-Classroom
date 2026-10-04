@@ -165,31 +165,6 @@ export const StudentDashboard = () => {
         </button>
       </div>
 
-      {/* Notifications Alert Hub for Student */}
-      {studentNotifs.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {studentNotifs.slice(0, 2).map(n => (
-            <div key={n.id} style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: n.type === 'LOW_SCORE_FLAG' ? 'var(--status-danger-bg)' : 'var(--status-info-bg)',
-              border: `1px solid ${n.type === 'LOW_SCORE_FLAG' ? 'rgba(244, 63, 94, 0.4)' : 'rgba(6, 182, 212, 0.4)'}`,
-              padding: '0.75rem 1.25rem',
-              borderRadius: 'var(--radius-md)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <AlertTriangle color={n.type === 'LOW_SCORE_FLAG' ? '#f43f5e' : '#06b6d4'} size={18} />
-                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{n.message}</span>
-              </div>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                Parent & Teacher Notified via Automated Mail
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {activeTab === 'certificates' ? (
         <CertificateLocker />
       ) : (
@@ -225,10 +200,8 @@ export const StudentDashboard = () => {
                       </div>
 
                       {sub ? (
-                        sub.isBelowThreshold ? (
-                          <span className="badge badge-danger">FLAGGED BELOW THRESHOLD</span>
-                        ) : sub.status === 'FINALIZED' ? (
-                          <span className="badge badge-success">GRADED / PASS</span>
+                        sub.status === 'FINALIZED' ? (
+                          <span className="badge badge-success">GRADED</span>
                         ) : (
                           <span className="badge badge-info">SUBMITTED</span>
                         )
@@ -289,15 +262,15 @@ export const StudentDashboard = () => {
                           background: 'var(--bg-glass)', 
                           padding: '1.1rem', 
                           borderRadius: 'var(--radius-md)', 
-                          border: `1px solid ${sub.isBelowThreshold ? 'rgba(244, 63, 94, 0.35)' : sub.status === 'FINALIZED' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(99, 102, 241, 0.35)'}`,
-                          borderLeft: `4px solid ${sub.isBelowThreshold ? '#f43f5e' : sub.status === 'FINALIZED' ? '#10b981' : '#38bdf8'}`,
+                          border: `1px solid ${sub.status === 'FINALIZED' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(99, 102, 241, 0.35)'}`,
+                          borderLeft: `4px solid ${sub.status === 'FINALIZED' ? '#10b981' : '#38bdf8'}`,
                           marginBottom: '1.1rem',
                           boxShadow: 'var(--shadow-sm)'
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          <span className={`badge ${sub.isBelowThreshold ? 'badge-danger' : sub.status === 'FINALIZED' ? 'badge-success' : 'badge-info'}`} style={{ fontSize: '0.78rem', padding: '0.35rem 0.8rem' }}>
-                            <CheckCircle2 size={13} /> {sub.isBelowThreshold ? 'FLAGGED BELOW THRESHOLD' : sub.status === 'FINALIZED' ? 'GRADED / PASS' : 'SUBMITTED / IN REVIEW'}
+                          <span className={`badge ${sub.status === 'FINALIZED' ? 'badge-success' : 'badge-info'}`} style={{ fontSize: '0.78rem', padding: '0.35rem 0.8rem' }}>
+                            <CheckCircle2 size={13} /> {sub.status === 'FINALIZED' ? 'GRADED & FINALIZED' : 'SUBMITTED / IN REVIEW'}
                           </span>
                           
                           <span className={`badge ${sub.similarityPercentage > asg.similarityThreshold ? 'badge-danger' : 'badge-success'}`} style={{ fontSize: '0.75rem', padding: '0.28rem 0.7rem' }}>

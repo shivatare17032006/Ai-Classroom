@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { useClassroom } from '../../context/ClassroomContext';
+import { useAuth } from '../../context/AuthContext';
+import { EmailNotificationService } from '../../services/emailService';
 import { X, Sparkles, CheckCircle2, Edit3, ShieldCheck, AlertTriangle, FileText, Eye, Cloud } from 'lucide-react';
 import { DocumentViewerModal } from '../Common/DocumentViewerModal';
 
 export const AIGradingReviewer = ({ submission, assignment, isOpen, onClose }) => {
   const { finalizeAiGrade } = useClassroom();
+  const { currentUser, users, consumeAiCredit } = useAuth();
 
   const [finalScore, setFinalScore] = useState(
     submission ? (submission.teacherFinalGrade ?? submission.aiSuggestedGrade ?? 0) : 0
@@ -15,23 +18,61 @@ export const AIGradingReviewer = ({ submission, assignment, isOpen, onClose }) =
 
   if (!isOpen || !submission || !assignment) return null;
 
-  const handleApprove = () => {
-    finalizeAiGrade(
+  const handleApprove = async () => {
+    await consumeAiCredit();
+    await finalizeAiGrade(
       submission.id,
       submission.aiSuggestedGrade,
       teacherComments || '',
       assignment
     );
+
+    // CASE 3: PARENT EMAIL NOTIFICATION ON LOW SCORE / BELOW THRESHOLD
+    const score = Number(submission.aiSuggestedGrade ?? 0);
+    if (score < assignment.minimumThreshold) {
+      const studentUser = (users || []).find(u => u.id === submission.studentId || (u.name && u.name === submission.studentName));
+      const parentEmail = studentUser?.parentEmail || 'parent@gmail.com';
+      EmailNotificationService.sendParentAcademicAlertEmail(
+        submission.studentName,
+        parentEmail,
+        'Academic Subject',
+        assignment.title,
+        score,
+        assignment.maximumMarks,
+        assignment.minimumThreshold,
+        teacherComments || 'Student score fell below minimum passing threshold.'
+      );
+    }
+
     onClose();
   };
 
-  const handleSaveModification = () => {
-    finalizeAiGrade(
+  const handleSaveModification = async () => {
+    await consumeAiCredit();
+    await finalizeAiGrade(
       submission.id,
       finalScore,
       teacherComments || '',
       assignment
     );
+
+    // CASE 3: PARENT EMAIL NOTIFICATION ON LOW SCORE / BELOW THRESHOLD
+    const score = Number(finalScore);
+    if (score < assignment.minimumThreshold) {
+      const studentUser = (users || []).find(u => u.id === submission.studentId || (u.name && u.name === submission.studentName));
+      const parentEmail = studentUser?.parentEmail || 'parent@gmail.com';
+      EmailNotificationService.sendParentAcademicAlertEmail(
+        submission.studentName,
+        parentEmail,
+        'Academic Subject',
+        assignment.title,
+        score,
+        assignment.maximumMarks,
+        assignment.minimumThreshold,
+        teacherComments || 'Student score fell below minimum passing threshold.'
+      );
+    }
+
     onClose();
   };
 

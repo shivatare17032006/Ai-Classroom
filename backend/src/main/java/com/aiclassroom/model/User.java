@@ -3,10 +3,15 @@ package com.aiclassroom.model;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+    @Index(name = "idx_user_email", columnList = "email"),
+    @Index(name = "idx_user_role", columnList = "role"),
+    @Index(name = "idx_user_plan", columnList = "planType")
+})
 public class User {
     @Id
     private String id;
@@ -19,11 +24,21 @@ public class User {
     private String avatar;
     private String rollNo;
     private String prnNo;
+    private String planType = "FREE"; // FREE, INDIVIDUAL_PRO, INSTITUTIONAL_ENTERPRISE
+    private Integer aiCreditsUsed = 0;
 
     public User() {
     }
 
     public User(String id, String name, String email, String role, String parentEmail, String avatar, String rollNo, String prnNo) {
+        this(id, name, email, role, parentEmail, avatar, rollNo, prnNo, "FREE", 0);
+    }
+
+    public User(String id, String name, String email, String role, String parentEmail, String avatar, String rollNo, String prnNo, String planType) {
+        this(id, name, email, role, parentEmail, avatar, rollNo, prnNo, planType, 0);
+    }
+
+    public User(String id, String name, String email, String role, String parentEmail, String avatar, String rollNo, String prnNo, String planType, Integer aiCreditsUsed) {
         this.id = id;
         this.name = name;
         this.email = email;
@@ -32,6 +47,8 @@ public class User {
         this.avatar = avatar;
         this.rollNo = rollNo;
         this.prnNo = prnNo;
+        this.planType = planType != null ? planType : "FREE";
+        this.aiCreditsUsed = aiCreditsUsed != null ? aiCreditsUsed : 0;
     }
 
     public String getId() { return id; }
@@ -58,6 +75,12 @@ public class User {
     public String getPrnNo() { return prnNo; }
     public void setPrnNo(String prnNo) { this.prnNo = prnNo; }
 
+    public String getPlanType() { return planType; }
+    public void setPlanType(String planType) { this.planType = planType; }
+
+    public Integer getAiCreditsUsed() { return aiCreditsUsed; }
+    public void setAiCreditsUsed(Integer aiCreditsUsed) { this.aiCreditsUsed = aiCreditsUsed; }
+
     public static UserBuilder builder() { return new UserBuilder(); }
 
     public static class UserBuilder {
@@ -69,6 +92,8 @@ public class User {
         private String avatar;
         private String rollNo;
         private String prnNo;
+        private String planType = "FREE";
+        private Integer aiCreditsUsed = 0;
 
         public UserBuilder id(String id) { this.id = id; return this; }
         public UserBuilder name(String name) { this.name = name; return this; }
@@ -78,9 +103,11 @@ public class User {
         public UserBuilder avatar(String avatar) { this.avatar = avatar; return this; }
         public UserBuilder rollNo(String rollNo) { this.rollNo = rollNo; return this; }
         public UserBuilder prnNo(String prnNo) { this.prnNo = prnNo; return this; }
+        public UserBuilder planType(String planType) { this.planType = planType; return this; }
+        public UserBuilder aiCreditsUsed(Integer aiCreditsUsed) { this.aiCreditsUsed = aiCreditsUsed; return this; }
 
         public User build() {
-            return new User(id, name, email, role, parentEmail, avatar, rollNo, prnNo);
+            return new User(id, name, email, role, parentEmail, avatar, rollNo, prnNo, planType, aiCreditsUsed);
         }
     }
 }

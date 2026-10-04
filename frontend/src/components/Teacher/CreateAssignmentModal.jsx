@@ -1,11 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { useClassroom } from '../../context/ClassroomContext';
+import { useAuth } from '../../context/AuthContext';
+import { EmailNotificationService } from '../../services/emailService';
 import { X, Plus, Trash2, Sliders, Shield, Award, Code, Clock, UploadCloud, FileText, CheckCircle2, Loader2, Link as LinkIcon } from 'lucide-react';
 import { uploadToCloudinary } from '../../utils/cloudinary';
 import { getFileType } from '../../utils/fileExtractor';
 
 export const CreateAssignmentModal = ({ isOpen, onClose }) => {
   const { activeClassroom, addAssignment } = useClassroom();
+  const { users } = useAuth();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -77,7 +80,7 @@ export const CreateAssignmentModal = ({ isOpen, onClose }) => {
     e.preventDefault();
     if (!title || !activeClassroom) return;
 
-    addAssignment({
+    const newAssignment = {
       classroomId: activeClassroom.id,
       title,
       description,
@@ -93,7 +96,22 @@ export const CreateAssignmentModal = ({ isOpen, onClose }) => {
       fileUrl,
       fileType,
       rubric
-    });
+    };
+
+    addAssignment(newAssignment);
+
+    // CASE 1A & CASE 2: AUTOMATED EMAIL NOTIFICATIONS TO ENROLLED STUDENTS
+    const enrolledStudents = (users || []).filter(u => 
+      u.role === 'STUDENT' && Array.isArray(activeClassroom?.studentIds) && activeClassroom.studentIds.includes(u.id)
+    );
+
+    EmailNotificationService.sendNewAssignmentEmails(activeClassroom, newAssignment, enrolledStudents);
+
+    // If due today, trigger 6 PM due today alert as well
+    const isDueToday = dueDate && new Date(dueDate).toDateString() === new Date().toDateString();
+    if (isDueToday) {
+      EmailNotificationService.sendDueTodayReminderEmails(activeClassroom, newAssignment, enrolledStudents);
+    }
 
     onClose();
   };
