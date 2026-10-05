@@ -179,7 +179,7 @@ export const StudentDashboard = () => {
           ) : (
             classAssignments.map(asg => {
               const sub = safeSubmissions.find(s => s.assignmentId === asg.id && s.studentId === studentId);
-              const ext = safeExtensions.find(e => e.assignmentId === asg.id && e.studentId === studentId);
+              const ext = safeExtensions.find(e => e.assignmentId === asg.id && (e.studentId === 'ALL' || e.studentId === studentId || (currentUser?.email && e.studentId && e.studentId.toLowerCase() === currentUser.email.toLowerCase())));
 
               const effectiveDueDate = ext ? ext.extendedDueDate : asg.dueDate;
               const isLate = new Date() > new Date(effectiveDueDate) && !sub;

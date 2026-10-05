@@ -32,8 +32,11 @@ export function exportSingleAssignmentCSV(assignment, submissions, users, extens
     return matched[0];
   };
 
+  const safeExtensions = extensions || [];
+
   const rows = students.map(student => {
     const sub = getLatestSub(assignment.id, student);
+    const ext = safeExtensions.find(e => e.assignmentId === assignment.id && (e.studentId === 'ALL' || e.studentId === student.id || (student.email && e.studentId && e.studentId.toLowerCase() === student.email.toLowerCase())));
 
     let finalMarks = 'MISSING';
     let subDate = 'MISSING';
@@ -50,6 +53,9 @@ export function exportSingleAssignmentCSV(assignment, submissions, users, extens
       }
 
       subDate = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : 'Submitted';
+    } else if (ext) {
+      finalMarks = `EXTENDED (${new Date(ext.extendedDueDate).toLocaleDateString()})`;
+      subDate = `Extended to ${new Date(ext.extendedDueDate).toLocaleString()}`;
     }
 
     return [

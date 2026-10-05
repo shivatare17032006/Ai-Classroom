@@ -35,6 +35,7 @@ export const TeacherDashboard = ({ classroom, onNavigateBilling }) => {
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+  const [extensionTarget, setExtensionTarget] = useState({ assignmentId: '', studentId: '' });
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [activeTab, setActiveTab] = useState('performance'); // 'performance' | 'certificates'
   const [selectedAssignmentId, setSelectedAssignmentId] = useState('ALL');
@@ -390,7 +391,7 @@ export const TeacherDashboard = ({ classroom, onNavigateBilling }) => {
                   relevantAssignments.flatMap(asg => 
                     students.map(student => {
                       const sub = latestStudentSubmissions.find(s => s.assignmentId === asg.id && findStudentForSubmission(s)?.id === student.id);
-                      const ext = safeExtensions.find(e => e.assignmentId === asg.id && (e.studentId === student.id || (student.email && e.studentId && e.studentId.toLowerCase() === student.email.toLowerCase())));
+                      const ext = safeExtensions.find(e => e.assignmentId === asg.id && (e.studentId === 'ALL' || e.studentId === student.id || (student.email && e.studentId && e.studentId.toLowerCase() === student.email.toLowerCase())));
 
                       let statusBadge = <span className="badge badge-danger">MISSING</span>;
                       if (ext && !sub) {
@@ -452,7 +453,10 @@ export const TeacherDashboard = ({ classroom, onNavigateBilling }) => {
                               </button>
                             ) : (
                               <button 
-                                onClick={() => setIsExtensionModalOpen(true)}
+                                onClick={() => {
+                                  setExtensionTarget({ assignmentId: asg.id, studentId: student.id });
+                                  setIsExtensionModalOpen(true);
+                                }}
                                 className="btn btn-sm btn-secondary" 
                                 style={{ fontSize: '0.75rem', gap: '0.2rem' }}
                               >
@@ -479,7 +483,12 @@ export const TeacherDashboard = ({ classroom, onNavigateBilling }) => {
 
       <DeadlineExtensionModal 
         isOpen={isExtensionModalOpen} 
-        onClose={() => setIsExtensionModalOpen(false)} 
+        onClose={() => {
+          setIsExtensionModalOpen(false);
+          setExtensionTarget({ assignmentId: '', studentId: '' });
+        }} 
+        defaultAssignmentId={extensionTarget.assignmentId}
+        defaultStudentId={extensionTarget.studentId}
       />
 
       {selectedSubmission && (

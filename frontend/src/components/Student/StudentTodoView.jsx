@@ -34,7 +34,7 @@ export const StudentTodoView = () => {
 
   studentAssignments.forEach(asg => {
     const sub = (submissions || []).find(s => s.assignmentId === asg.id && s.studentId === studentId);
-    const ext = (extensions || []).find(e => e.assignmentId === asg.id && e.studentId === studentId);
+    const ext = (extensions || []).find(e => e.assignmentId === asg.id && (e.studentId === 'ALL' || e.studentId === studentId || (currentUser?.email && e.studentId && e.studentId.toLowerCase() === currentUser.email.toLowerCase())));
     const dueDate = ext ? new Date(ext.extendedDueDate) : new Date(asg.dueDate);
     const classroom = enrolledClassrooms.find(c => c.id === asg.classroomId);
 
