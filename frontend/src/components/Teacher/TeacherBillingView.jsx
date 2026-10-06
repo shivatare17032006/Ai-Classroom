@@ -23,8 +23,10 @@ import {
 } from 'lucide-react';
 
 export const TeacherBillingView = () => {
-  const { currentUser, updateUserProfile, licenses, isProUser, getRemainingAiCredits, FREE_AI_CREDITS_LIMIT } = useAuth();
-  const { addLicense } = useClassroom();
+  const { currentUser, updateUserProfile, licenses: authLicenses, isProUser, getRemainingAiCredits, FREE_AI_CREDITS_LIMIT } = useAuth();
+  const { addLicense, licenses: classroomLicenses } = useClassroom();
+  
+  const licenses = classroomLicenses && classroomLicenses.length > 0 ? classroomLicenses : (authLicenses || []);
   
   const [selectedPlan, setSelectedPlan] = useState(null); // 'MONTHLY_PRO' | 'ANNUAL_PRO' | 'ENTERPRISE'
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -67,6 +69,21 @@ export const TeacherBillingView = () => {
   const remainingCredits = getRemainingAiCredits(currentUser);
   const creditsUsed = currentUser?.aiCreditsUsed || 0;
 
+  const currentTeacherDomain = currentUser?.email ? currentUser.email.split('@')[1]?.toLowerCase() : '';
+
+  const activeDomainLicense = Array.isArray(licenses) ? licenses.find(l => 
+    l.domainExtension && 
+    l.domainExtension.toLowerCase().replace('@', '') === currentTeacherDomain && 
+    l.status === 'ACTIVE' && 
+    l.aiServicesAllowed !== false
+  ) : null;
+
+  const pendingDomainLicense = Array.isArray(licenses) ? licenses.find(l => 
+    l.domainExtension && 
+    l.domainExtension.toLowerCase().replace('@', '') === currentTeacherDomain && 
+    l.status === 'PENDING_VERIFICATION'
+  ) : null;
+
   const handleOpenCheckout = (planKey) => {
     setSelectedPlan(planKey);
     setIsCheckoutOpen(true);
@@ -96,24 +113,19 @@ export const TeacherBillingView = () => {
 
     try {
       if (selectedPlan === 'ENTERPRISE') {
-        if (!proofFile && !proofFileName) {
-          setMessage({ type: 'error', text: 'Please attach a proof document (Domain ownership certificate or University letterhead authorization).' });
-          setIsProcessing(false);
-          return;
-        }
-
-        const cleanDomain = (instDomainExt || userDomain).trim().toLowerCase().replace('@', '');
+        const cleanDomain = (instDomainExt || userDomain || 'campus.edu').trim().toLowerCase().replace('@', '');
+        const targetInstName = instName || `${cleanDomain.toUpperCase()} Institution`;
 
         await addLicense({
-          institutionName: instName || 'Academic Institution',
+          institutionName: targetInstName,
           domainExtension: cleanDomain,
           planType: 'ENTERPRISE_ANNUAL',
           priceInInr: 49999.0,
           status: 'PENDING_VERIFICATION',
           aiServicesAllowed: false,
-          contactName: contactName || currentUser?.name,
-          contactEmail: contactEmail || currentUser?.email,
-          proofDocumentName: proofFileName || (proofFile ? proofFile.name : 'Institutional_Domain_Proof.pdf'),
+          contactName: contactName || currentUser?.name || 'Educator',
+          contactEmail: contactEmail || currentUser?.email || '',
+          proofDocumentName: proofFileName || (proofFile ? proofFile.name : 'Campus_Domain_Ownership_Proof.pdf'),
           proofDocumentUrl: proofFileDataUrl || ''
         });
 
@@ -174,6 +186,34 @@ export const TeacherBillingView = () => {
     }
   };
 
+  const handleSubmitDomainForAdminApproval = async (domainToSubmit) => {
+    setIsProcessing(true);
+    setMessage(null);
+    try {
+      const cleanDomain = domainToSubmit.trim().toLowerCase().replace('@', '');
+      await addLicense({
+        institutionName: instName || `${cleanDomain.toUpperCase()} Campus`,
+        domainExtension: cleanDomain,
+        planType: 'ENTERPRISE_ANNUAL',
+        priceInInr: 49999.0,
+        status: 'PENDING_VERIFICATION',
+        aiServicesAllowed: false,
+        contactName: contactName || currentUser?.name || 'Educator',
+        contactEmail: contactEmail || currentUser?.email || '',
+        proofDocumentName: proofFileName || 'Campus_Authorization_Letter.pdf',
+        proofDocumentUrl: proofFileDataUrl || ''
+      });
+      setMessage({
+        type: 'warning',
+        text: `📋 Institutional License Application for '@${cleanDomain}' has been submitted to the Admin Verification Queue! Log in as System Admin (admin@classroom.edu) to approve and whitelist.`
+      });
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to submit license application for Admin approval.' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleVerifyEnterpriseDomain = async (e) => {
     e.preventDefault();
     setIsProcessing(true);
@@ -192,18 +232,26 @@ export const TeacherBillingView = () => {
     try {
       const activeLicenses = licenses && licenses.length > 0 ? licenses : await ApiService.getLicenses();
       const matched = (activeLicenses || []).find(l => 
-        l.domainExtension.toLowerCase().replace('@', '') === checkDomain && 
+        l.domainExtension && l.domainExtension.toLowerCase().replace('@', '') === checkDomain && 
         (l.status === 'ACTIVE' && l.aiServicesAllowed !== false)
+      );
+
+      const pendingMatched = (activeLicenses || []).find(l => 
+        l.domainExtension && l.domainExtension.toLowerCase().replace('@', '') === checkDomain && 
+        (l.status === 'PENDING_VERIFICATION')
       );
 
       if (matched) {
         await updateUserProfile({ planType: 'INSTITUTIONAL_ENTERPRISE' });
-        setMessage({ type: 'success', text: `✨ Verified Institutional Enterprise License for ${matched.institutionName}! All AI features unlocked for ${checkDomain}.` });
-      } else {
+        setMessage({ type: 'success', text: `✨ Verified Active Institutional Enterprise License for ${matched.institutionName}! All AI features unlocked for ${checkDomain}.` });
+      } else if (pendingMatched) {
         setMessage({ 
-          type: 'error', 
-          text: `No active Enterprise license found for domain '${checkDomain}'. Contact institution admin or subscribe to Individual Pro.` 
+          type: 'warning', 
+          text: `⏳ A license request for domain '@${checkDomain}' is currently in the Admin Verification Queue waiting for approval. Log in as System Admin to approve.` 
         });
+      } else {
+        // Automatically submit license request for Admin approval
+        await handleSubmitDomainForAdminApproval(checkDomain);
       }
     } catch (err) {
       setMessage({ type: 'error', text: 'Error verifying institutional domain.' });
@@ -233,8 +281,14 @@ export const TeacherBillingView = () => {
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>
               Current Subscription Status
             </span>
-            <strong style={{ fontSize: '1rem', color: isPro ? 'var(--status-success)' : 'var(--status-danger)' }}>
-              {currentUser?.planType === 'INSTITUTIONAL_ENTERPRISE' ? '🏫 Institutional Enterprise B2B' : isPro ? '⭐ Individual Teacher Pro' : '🔒 Unlicensed (License Required)'}
+            <strong style={{ fontSize: '1rem', color: activeDomainLicense ? 'var(--status-success)' : currentUser?.planType === 'INDIVIDUAL_PRO' ? 'var(--status-success)' : pendingDomainLicense ? 'var(--status-warning)' : 'var(--status-danger)' }}>
+              {activeDomainLicense 
+                ? `🏫 Institutional Enterprise B2B (${activeDomainLicense.institutionName || currentTeacherDomain})` 
+                : currentUser?.planType === 'INDIVIDUAL_PRO' 
+                ? '⭐ Individual Teacher Pro' 
+                : pendingDomainLicense 
+                ? '⏳ License Pending Verification' 
+                : '🔒 Unlicensed (License Required)'}
             </strong>
           </div>
           {isPro ? (
@@ -491,10 +545,9 @@ export const TeacherBillingView = () => {
                         <input 
                           type="text" 
                           className="form-input" 
-                          placeholder="e.g. Veermata Jijabai Technological Institute (VJTI)" 
+                          placeholder="e.g. Vishwakarma Institute of Technology (VIT Pune)" 
                           value={instName}
                           onChange={e => setInstName(e.target.value)}
-                          required
                         />
                       </div>
 
@@ -503,17 +556,16 @@ export const TeacherBillingView = () => {
                         <input 
                           type="text" 
                           className="form-input" 
-                          placeholder="e.g. vjti.ac.in or university.edu" 
+                          placeholder="e.g. vit.edu or university.edu" 
                           value={instDomainExt}
                           onChange={e => setInstDomainExt(e.target.value)}
-                          required
                         />
                       </div>
 
-                      {/* Mandatory Document Proof Upload Box */}
+                      {/* Optional Document Proof Upload Box */}
                       <div>
                         <label className="form-label" style={{ fontWeight: 800, color: 'var(--accent-purple)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem' }}>
-                          <Upload size={16} color="var(--accent-purple)" /> Mandatory Document Proof Upload <span style={{ color: 'var(--status-danger)', fontSize: '0.8rem' }}>*Required</span>
+                          <Upload size={16} color="var(--accent-purple)" /> Document Proof Upload <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>(Optional)</span>
                         </label>
                         <div style={{
                           border: proofFileName ? '2px solid var(--status-success)' : '2px dashed var(--accent-purple)',
@@ -528,7 +580,6 @@ export const TeacherBillingView = () => {
                             type="file" 
                             accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                             onChange={handleFileUpload}
-                            required={!proofFileName}
                             style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
                           />
                           {proofFileName ? (

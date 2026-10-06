@@ -214,6 +214,47 @@ public class SpringAiGradingService {
         return new GradingEvaluationResult(scoreRatio, rawScore, feedback, rubricScores, isOffTopic, relevanceScore);
     }
 
+    public static class TechMismatchResult {
+        private final boolean isMismatch;
+        private final String feedbackMessage;
+
+        public TechMismatchResult(boolean isMismatch, String feedbackMessage) {
+            this.isMismatch = isMismatch;
+            this.feedbackMessage = feedbackMessage;
+        }
+
+        public boolean isMismatch() { return isMismatch; }
+        public String getFeedbackMessage() { return feedbackMessage; }
+    }
+
+    /**
+     * Checks for critical domain, framework, or technology mismatches (e.g. MongoDB query for SQL assignment).
+     */
+    public TechMismatchResult checkTechnologyMismatch(String submission, String title, String description, String requiredTopic) {
+        if (submission == null || submission.trim().isEmpty()) {
+            return new TechMismatchResult(false, null);
+        }
+
+        String lowerSub = submission.toLowerCase();
+        String lowerContext = ((title != null ? title : "") + " " + (description != null ? description : "") + " " + (requiredTopic != null ? requiredTopic : "")).toLowerCase();
+
+        boolean contextIsSql = lowerContext.contains("sql") || lowerContext.contains("relational") || lowerContext.contains("postgres") || lowerContext.contains("mysql") || lowerContext.contains("sqlite") || lowerContext.contains("database query") || lowerContext.contains("queries");
+        boolean contextIsMongo = lowerContext.contains("mongo") || lowerContext.contains("nosql") || lowerContext.contains("document store") || lowerContext.contains("bson");
+
+        boolean subIsMongo = lowerSub.contains("db.") || lowerSub.contains("find({") || lowerSub.contains("find (") || lowerSub.contains("aggregate([") || lowerSub.contains("insertone(") || lowerSub.contains("insertmany(") || lowerSub.contains("mongodb") || lowerSub.contains("nosql") || lowerSub.contains("$match") || lowerSub.contains("$group") || lowerSub.contains("$project");
+        boolean subIsSql = lowerSub.contains("select ") || lowerSub.contains("from ") || lowerSub.contains("insert into") || lowerSub.contains("create table") || lowerSub.contains("alter table") || lowerSub.contains("drop table") || lowerSub.contains("where ") || lowerSub.contains("group by") || lowerSub.contains("inner join") || lowerSub.contains("left join");
+
+        if (contextIsSql && !contextIsMongo && subIsMongo && !subIsSql) {
+            return new TechMismatchResult(true, "SPRING AI EVALUATION RESULT:\nSCORE: 0.0/10\nRELEVANCE: 0.0%\nSTATUS: REJECTED (Technology & Query Syntax Mismatch)\nFEEDBACK: Critical Technology Mismatch: Submission contains MongoDB NoSQL query operations (`db.collection.find()`), which does not fulfill the requirement for relational SQL database queries (`SELECT ... FROM ... WHERE ...`). Assigned 0 marks.");
+        }
+
+        if (contextIsMongo && !contextIsSql && subIsSql && !subIsMongo) {
+            return new TechMismatchResult(true, "SPRING AI EVALUATION RESULT:\nSCORE: 0.0/10\nRELEVANCE: 0.0%\nSTATUS: REJECTED (Technology & Query Syntax Mismatch)\nFEEDBACK: Critical Technology Mismatch: Submission contains SQL Relational Database queries (`SELECT ... FROM ...`), which does not fulfill the requirement for MongoDB NoSQL queries (`db.collection.find()`). Assigned 0 marks.");
+        }
+
+        return new TechMismatchResult(false, null);
+    }
+
     /**
      * Smart semantic analysis engine powered by Spring AI logic for offline or API key fallback.
      */
@@ -235,6 +276,13 @@ public class SpringAiGradingService {
             return new GradingEvaluationResult(0.0, 0.0, feedback, zeroRubric, true, 0.0);
         }
 
+        // 1. Check for Domain / Tech Mismatch (e.g. MongoDB query submitted for SQL assignment)
+        TechMismatchResult techMismatch = checkTechnologyMismatch(submission, title, description, requiredTopic);
+        if (techMismatch.isMismatch()) {
+            Map<String, Double> zeroRubric = calculateRubricBreakdown(0.0, rubricMap);
+            return new GradingEvaluationResult(0.0, 0.0, techMismatch.getFeedbackMessage(), zeroRubric, true, 0.0);
+        }
+
         String lowerSubmission = submission.toLowerCase();
         String fullPromptText = (title + " " + (description != null ? description : "") + " " + (requiredTopic != null ? requiredTopic : "")).toLowerCase();
 
@@ -242,10 +290,11 @@ public class SpringAiGradingService {
             "the", "is", "at", "which", "on", "a", "an", "and", "or", "to", "in", "for", "of", "with", "by", "from",
             "write", "submit", "assignment", "solution", "create", "please", "should", "have", "must", "using", "code",
             "project", "system", "data", "app", "application", "process", "method", "function", "program",
-            "task", "file", "problem", "input", "output", "example", "value", "result", "implementation", "details"
+            "task", "file", "problem", "input", "output", "example", "value", "result", "implementation", "details",
+            "explain", "each", "them", "question", "cmds", "commands", "cmd", "topic"
         ));
 
-        // Required topic mandatory match check
+        // Required topic match check
         boolean hasRequiredTopicMatch = true;
         if (requiredTopic != null && !requiredTopic.trim().isEmpty() && !requiredTopic.equalsIgnoreCase("General")) {
             String cleanTopic = requiredTopic.toLowerCase().replaceAll("[^a-z0-9\\s]", " ").trim();
@@ -281,7 +330,7 @@ public class SpringAiGradingService {
         boolean isOffTopic = false;
         String feedbackText;
 
-        if (!hasRequiredTopicMatch || relevanceRatio < 0.25) {
+        if (!hasRequiredTopicMatch || relevanceRatio < 0.20) {
             scoreRatio = 0.0;
             isOffTopic = true;
             feedbackText = String.format(
@@ -289,36 +338,30 @@ public class SpringAiGradingService {
                 "SCORE: 0.0/10\n" +
                 "RELEVANCE: %.1f%%\n" +
                 "STATUS: REJECTED (Off-Topic Submission)\n" +
-                "FEEDBACK: The submitted document shares insufficient topic alignment (%.1f%% relevance) with the assignment topic \"%s\". Expected detailed coverage of \"%s\". Assigned 0/10.\n" +
-                "AREAS_FOR_IMPROVEMENT: Ensure submission directly answers the required assignment topic and problem specifications.",
+                "FEEDBACK: The submitted document shares insufficient topic alignment (%.1f%% relevance) with the assignment prompt \"%s\". Assigned 0/10.\n" +
+                "AREAS_FOR_IMPROVEMENT: Ensure submission directly answers the required assignment prompt and problem specifications.",
                 relevancePercentage, relevancePercentage,
-                title != null ? title : "Assignment",
-                requiredTopic != null ? requiredTopic : (title != null ? title : "Required Topic")
-            );
-        } else if (relevanceRatio < 0.50) {
-            scoreRatio = Math.round((relevanceRatio * 0.6) * 100.0) / 100.0;
-            feedbackText = String.format(
-                "SPRING AI EVALUATION RESULT:\n" +
-                "SCORE: %.1f/10\n" +
-                "RELEVANCE: %.1f%%\n" +
-                "STATUS: PARTIAL FULFILLMENT\n" +
-                "FEEDBACK: Submission demonstrates partial understanding of \"%s\" (%d%% topic match). Deeper technical explanation and complete code/rubric coverage required.\n" +
-                "STRENGTHS: Touches upon fundamental subject concepts.\n" +
-                "AREAS_FOR_IMPROVEMENT: Expand solution depth and address all rubric criteria fully.",
-                scoreRatio * 10, relevancePercentage, title != null ? title : "Assignment", (int) relevancePercentage
+                title != null ? title : "Assignment"
             );
         } else {
-            // High alignment (50% - 100%)
-            scoreRatio = Math.round((0.55 + (relevanceRatio * 0.45)) * 100.0) / 100.0;
+            // Calculate proportional academic score ratio
+            if (relevanceRatio >= 0.70) {
+                scoreRatio = 0.85 + Math.min(0.15, (relevanceRatio - 0.70) * 0.5);
+            } else if (relevanceRatio >= 0.40) {
+                scoreRatio = 0.65 + (relevanceRatio - 0.40) * 0.66;
+            } else {
+                scoreRatio = 0.30 + (relevanceRatio - 0.20) * 1.75;
+            }
+
             feedbackText = String.format(
                 "SPRING AI EVALUATION RESULT:\n" +
                 "SCORE: %.1f/10\n" +
                 "RELEVANCE: %.1f%%\n" +
-                "STATUS: EXCELLENT ACADEMIC PERFORMANCE\n" +
-                "FEEDBACK: Comprehensive student submission demonstrating high proficiency and thorough alignment with assignment brief and required topics.\n" +
-                "STRENGTHS: Excellent problem coverage, well-structured response, clear technical accuracy.\n" +
-                "AREAS_FOR_IMPROVEMENT: Continue maintaining high quality and refine code documentation.",
-                scoreRatio * 10, relevancePercentage
+                "STATUS: ACADEMIC EVALUATION COMPLETED\n" +
+                "FEEDBACK: Student submission evaluated against assignment instructions (%.1f%% prompt keyword alignment).\n" +
+                "STRENGTHS: Relevant concepts present in submission.\n" +
+                "AREAS_FOR_IMPROVEMENT: Provide detailed step-by-step explanations and verify exact syntax.",
+                scoreRatio * 10.0, relevancePercentage, relevancePercentage
             );
         }
 
@@ -331,8 +374,17 @@ public class SpringAiGradingService {
     private Map<String, Double> calculateRubricBreakdown(double scoreRatio, Map<String, String> rubricMap) {
         Map<String, Double> breakdown = new HashMap<>();
         if (rubricMap != null) {
-            rubricMap.keySet().forEach(itemId -> {
-                double itemScore = Math.round(2.0 * scoreRatio * 10.0) / 10.0; // Assume max 2.0 per item
+            rubricMap.forEach((itemId, desc) -> {
+                double maxVal = 2.0;
+                if (desc != null && desc.contains("(Max ")) {
+                    try {
+                        String maxStr = desc.substring(desc.indexOf("(Max ") + 5, desc.lastIndexOf(")")).trim();
+                        maxVal = Double.parseDouble(maxStr);
+                    } catch (Exception e) {
+                        maxVal = 2.0;
+                    }
+                }
+                double itemScore = Math.round(maxVal * scoreRatio * 10.0) / 10.0;
                 breakdown.put(itemId, itemScore);
             });
         }

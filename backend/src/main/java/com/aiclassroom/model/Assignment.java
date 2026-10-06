@@ -25,6 +25,7 @@ public class Assignment {
     private Double maximumMarks;
     private Double minimumThreshold;
     private Double similarityThreshold;
+    private Boolean bypassPlagiarism = false; // If true, bypasses plagiarism checks for command/code assignments
     private String dueDate;
 
     private String fileName;
@@ -89,6 +90,9 @@ public class Assignment {
 
     public Double getSimilarityThreshold() { return similarityThreshold; }
     public void setSimilarityThreshold(Double similarityThreshold) { this.similarityThreshold = similarityThreshold; }
+
+    public Boolean getBypassPlagiarism() { return bypassPlagiarism != null ? bypassPlagiarism : false; }
+    public void setBypassPlagiarism(Boolean bypassPlagiarism) { this.bypassPlagiarism = bypassPlagiarism; }
 
     public String getDueDate() { return dueDate; }
     public void setDueDate(String dueDate) { this.dueDate = dueDate; }

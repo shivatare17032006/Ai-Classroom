@@ -24,6 +24,7 @@ public class InstitutionLicense {
     private String contactName;
     private String contactEmail;
     private String proofDocumentName;
+    @Lob
     @Column(columnDefinition = "TEXT")
     private String proofDocumentUrl;
     private LocalDateTime createdAt;

@@ -114,7 +114,21 @@ public class PlagiarismService {
     }
 
     private String[] tokenize(String text) {
-        return text.toLowerCase().replaceAll("[^a-zA-Z0-9\\s]", "").split("\\s+");
+        if (text == null) return new String[0];
+        Set<String> syntaxStopWords = new HashSet<>(Arrays.asList(
+            "create", "table", "select", "from", "where", "insert", "into", "values", "update", "set", "delete",
+            "alter", "drop", "truncate", "grant", "revoke", "int", "varchar", "string", "database", "user", "example",
+            "public", "class", "static", "void", "return", "function", "def", "if", "else", "for", "while", "import",
+            "the", "is", "at", "which", "on", "a", "an", "and", "or", "to", "in", "for", "of", "with", "by", "from"
+        ));
+        String[] tokens = text.toLowerCase().replaceAll("[^a-zA-Z0-9\\s]", "").split("\\s+");
+        List<String> filtered = new ArrayList<>();
+        for (String t : tokens) {
+            if (t.length() > 2 && !syntaxStopWords.contains(t)) {
+                filtered.add(t);
+            }
+        }
+        return filtered.toArray(new String[0]);
     }
 
     private List<String> extractMatching5Grams(String textA, String textB) {

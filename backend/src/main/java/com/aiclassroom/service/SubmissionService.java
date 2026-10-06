@@ -88,6 +88,8 @@ public class SubmissionService {
         double similarityThreshold = assignment != null && assignment.getSimilarityThreshold() != null 
                 ? assignment.getSimilarityThreshold() : 15.0;
 
+        boolean bypassPlagiarism = assignment != null && Boolean.TRUE.equals(assignment.getBypassPlagiarism());
+
         String submissionId = existingSub != null ? existingSub.getId() : ("sub-" + System.currentTimeMillis());
         String nowStr = LocalDateTime.now().toString();
 
@@ -101,7 +103,7 @@ public class SubmissionService {
         );
 
         double similarityScore = plagReport.getSimilarityPercentage();
-        boolean isPlagiarized = "FLAGGED_PLAGIARISM".equals(plagReport.getStatus());
+        boolean isPlagiarized = !bypassPlagiarism && "FLAGGED_PLAGIARISM".equals(plagReport.getStatus());
 
         Submission submission = existingSub != null ? existingSub : new Submission();
         submission.setId(submissionId);

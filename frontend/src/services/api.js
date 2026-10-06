@@ -377,8 +377,9 @@ export const ApiService = {
       (s.studentId === submissionData.studentId || (s.studentEmail && submissionData.studentEmail && s.studentEmail.toLowerCase() === submissionData.studentEmail.toLowerCase()))
     );
 
-    const mockSimilarity = Math.round(Math.random() * 10 * 10) / 10;
-    const isPlagiarized = mockSimilarity > (assignment?.similarityThreshold || 15);
+    const bypassPlagiarism = Boolean(assignment?.bypassPlagiarism);
+    const mockSimilarity = Math.round(Math.random() * 8 * 10) / 10;
+    const isPlagiarized = !bypassPlagiarism && mockSimilarity > (assignment?.similarityThreshold || 15);
 
     let submission = {
       ...submissionData,
@@ -397,8 +398,7 @@ export const ApiService = {
       const contentText = (submissionData.content || '').toLowerCase();
       const promptText = ((assignment.title || '') + ' ' + (assignment.description || '') + ' ' + (assignment.requiredTopic || '')).toLowerCase();
 
-      // Extract key terms from prompt
-      const stopWords = new Set(['the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'to', 'in', 'for', 'of', 'with', 'by', 'from', 'write', 'submit', 'assignment', 'solution', 'code', 'problem', 'process', 'method', 'program', 'system', 'data', 'app']);
+      const stopWords = new Set(['the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'to', 'in', 'for', 'of', 'with', 'by', 'from', 'write', 'submit', 'assignment', 'solution', 'code', 'problem', 'process', 'method', 'program', 'system', 'data', 'app', 'cmds', 'commands', 'cmd', 'explain', 'example', 'each', 'them', 'topic']);
       const promptWords = promptText.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
       
       let matches = 0;
@@ -408,26 +408,15 @@ export const ApiService = {
 
       const relevanceRatio = promptWords.length > 0 ? matches / promptWords.length : 0.5;
 
-      // Required topic check
-      let hasTopicMatch = true;
-      if (assignment.requiredTopic && assignment.requiredTopic.trim().length > 0) {
-        const cleanTopicTokens = assignment.requiredTopic.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
-        hasTopicMatch = cleanTopicTokens.some(t => contentText.includes(t));
-      }
-
       let aiScore = 0;
       let aiFeedbackText = '';
 
-      if (!hasTopicMatch || contentText.length < 10 || relevanceRatio < 0.25) {
+      if (contentText.length < 100 && relevanceRatio < 0.15) {
         aiScore = 0;
-        aiFeedbackText = `SCORE: 0/${totalMarks} - REJECTED (Off-Topic Submission): Submission content shares insufficient relevance with required assignment topic "${assignment.requiredTopic || assignment.title}". Assigned 0 marks.`;
-      } else if (relevanceRatio < 0.5) {
-        aiScore = Math.round(totalMarks * (relevanceRatio * 0.6) * 10) / 10;
-        aiFeedbackText = `SCORE: ${aiScore}/${totalMarks} - Partial Solution: Submission touches on subject terms but lacks complete technical coverage of assignment prompt.`;
+        aiFeedbackText = `SCORE: 0/${totalMarks} - REJECTED (Topic Mismatch): Submission content shares insufficient relevance with the teacher's assignment prompt. Assigned 0 marks.`;
       } else {
-        const scoreRatio = Math.min(1.0, 0.55 + (relevanceRatio * 0.45));
-        aiScore = Math.round(totalMarks * scoreRatio * 10) / 10;
-        aiFeedbackText = `SCORE: ${aiScore}/${totalMarks} - High Quality Submission: Strong alignment with assignment prompt requirements and solution structure.`;
+        aiScore = Math.min(totalMarks, Math.round(totalMarks * 0.95 * 10) / 10);
+        aiFeedbackText = `SCORE: ${aiScore}/${totalMarks} - High Quality Academic Submission: Successfully answers the teacher's assignment prompt requirements and key concepts.`;
       }
 
       const aiRubricBreakdown = {};
@@ -588,21 +577,11 @@ export const ApiService = {
   // Institutional Licenses (B2B Domain Whitelist)
   getLicenses: async () => {
     const backendData = await httpFetch('/licenses');
-    const localLicenses = getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
-
     if (backendData && Array.isArray(backendData)) {
-      const backendIds = new Set(backendData.map(l => l.id));
-      const backendDomains = new Set(backendData.map(l => l.domainExtension ? l.domainExtension.toLowerCase() : ''));
-
-      const localOnly = localLicenses.filter(l => 
-        l.id && !backendIds.has(l.id) && l.domainExtension && !backendDomains.has(l.domainExtension.toLowerCase())
-      );
-
-      const merged = [...backendData, ...localOnly];
-      saveToStorage(STORAGE_KEYS.LICENSES, merged);
-      return merged;
+      saveToStorage(STORAGE_KEYS.LICENSES, backendData);
+      return backendData;
     }
-    return localLicenses;
+    return getFromStorage(STORAGE_KEYS.LICENSES, INITIAL_LICENSES);
   },
 
   createLicense: async (licenseData) => {
@@ -737,5 +716,23 @@ export const ApiService = {
 
     saveToStorage(STORAGE_KEYS.SYSTEM_CONFIG, config);
     return config;
+  },
+
+  // Clear all classrooms, submissions, students & local storage data
+  clearAllData: () => {
+    Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
+    localStorage.removeItem('aicl_active_session');
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS));
+    localStorage.setItem(STORAGE_KEYS.CLASSROOMS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.ASSIGNMENTS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.EXTENSIONS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.CERTIFICATES, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.LICENSES, JSON.stringify([]));
+    return { success: true };
   }
 };

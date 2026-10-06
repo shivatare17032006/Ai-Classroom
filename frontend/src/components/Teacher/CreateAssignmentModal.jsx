@@ -19,6 +19,7 @@ export const CreateAssignmentModal = ({ isOpen, onClose }) => {
   const [maximumMarks, setMaximumMarks] = useState(10);
   const [minimumThreshold, setMinimumThreshold] = useState(5);
   const [similarityThreshold, setSimilarityThreshold] = useState(15);
+  const [bypassPlagiarism, setBypassPlagiarism] = useState(false);
   const [dueDate, setDueDate] = useState('2026-09-25T23:59');
 
   // Cloudinary Attachment state for teacher reference PDF/Doc
@@ -91,6 +92,7 @@ export const CreateAssignmentModal = ({ isOpen, onClose }) => {
       maximumMarks: Number(maximumMarks),
       minimumThreshold: Number(minimumThreshold),
       similarityThreshold: Number(similarityThreshold),
+      bypassPlagiarism,
       dueDate,
       fileName,
       fileUrl,
@@ -318,6 +320,24 @@ export const CreateAssignmentModal = ({ isOpen, onClose }) => {
                 required 
               />
             </div>
+          </div>
+
+          {/* Bypass Plagiarism Check for Standard Code & Commands */}
+          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem', marginBottom: '1.25rem' }}>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', margin: 0 }}>
+              <input 
+                type="checkbox" 
+                checked={bypassPlagiarism} 
+                onChange={e => setBypassPlagiarism(e.target.checked)} 
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                Bypass Plagiarism Scan for Standard Code & SQL Commands
+              </span>
+            </label>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.35rem 0 0 0' }}>
+              Enable for assignments requiring standard SQL queries, command lists, or boilerplate code so students are not falsely flagged for plagiarism when writing identical syntax.
+            </p>
           </div>
 
           {/* Configurable Rubric Criteria Section */}

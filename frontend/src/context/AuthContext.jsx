@@ -26,7 +26,15 @@ export const AuthProvider = ({ children }) => {
         const cleanEmail = active.email.trim().toLowerCase();
         const freshUser = safeUsers.find(u => u.email && u.email.trim().toLowerCase() === cleanEmail);
         if (freshUser) {
-          const merged = { ...active, ...freshUser };
+          const domain = cleanEmail.split('@')[1]?.toLowerCase();
+          const hasActiveLic = Array.isArray(loadedLicenses) && loadedLicenses.some(l => 
+            l.domainExtension && l.domainExtension.toLowerCase().replace('@', '') === domain && l.status === 'ACTIVE'
+          );
+          let realPlan = freshUser.planType || 'FREE';
+          if (realPlan === 'INSTITUTIONAL_ENTERPRISE' && !hasActiveLic) {
+            realPlan = 'FREE';
+          }
+          const merged = { ...active, ...freshUser, planType: realPlan };
           setCurrentUser(merged);
           setSessionUser(merged);
         }
@@ -45,14 +53,16 @@ export const AuthProvider = ({ children }) => {
     if (user.role === 'ADMIN' || user.role === 'STUDENT') return true;
     if (user.planType === 'INDIVIDUAL_PRO') return true;
 
-    // Check if institutional domain license exists and is active for teacher's domain
+    // Institutional Enterprise plan strictly requires an ACTIVE approved campus license in DB for teacher's domain
     const domain = user.email?.split('@')[1]?.toLowerCase();
-    if (domain && licenses && licenses.length > 0) {
+    if (domain && Array.isArray(licenses) && licenses.length > 0) {
       const activeLicense = licenses.find(l => 
-        l.domainExtension && l.domainExtension.toLowerCase().replace('@', '') === domain && 
-        (l.status === 'ACTIVE' && (l.aiServicesAllowed !== false))
+        l.domainExtension && 
+        l.domainExtension.toLowerCase().replace('@', '') === domain && 
+        l.status === 'ACTIVE' && 
+        l.aiServicesAllowed !== false
       );
-      if (activeLicense && (user.planType === 'INSTITUTIONAL_ENTERPRISE' || user.hasClaimedInstitutionalBenefit)) {
+      if (activeLicense) {
         return true;
       }
     }
@@ -111,23 +121,38 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     fetchUsers();
+
+    // Polling every 2.5s to keep licenses and user session synced in real time
+    const interval = setInterval(() => {
+      fetchUsers();
+    }, 2500);
+
+    const handleStorageChange = () => {
+      fetchUsers();
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const login = async (email, password) => {
-    let userList = Array.isArray(users) ? users : [];
+    const freshUsers = await fetchUsers();
     const cleanEmail = email.trim().toLowerCase();
-    let user = userList.find(u => u.email && u.email.toLowerCase() === cleanEmail);
+    let user = (freshUsers || []).find(u => u.email && u.email.toLowerCase() === cleanEmail);
 
     if (!user) {
-      const freshUsers = await fetchUsers();
-      user = (freshUsers || []).find(u => u.email && u.email.toLowerCase() === cleanEmail);
+      const allUsers = Array.isArray(users) ? users : [];
+      user = allUsers.find(u => u.email && u.email.toLowerCase() === cleanEmail);
     }
 
     if (user) {
       // Automatic Institutional Domain License Link for Teachers
       if (user.role === 'TEACHER' && user.planType !== 'INDIVIDUAL_PRO') {
         const domain = cleanEmail.split('@')[1]?.toLowerCase();
-        const activeLicenses = licenses && licenses.length > 0 ? licenses : await ApiService.getLicenses();
+        const activeLicenses = await ApiService.getLicenses();
         if (domain && activeLicenses && activeLicenses.length > 0) {
           const matchedLic = activeLicenses.find(l => 
             l.domainExtension && l.domainExtension.toLowerCase().replace('@', '') === domain && l.status === 'ACTIVE'

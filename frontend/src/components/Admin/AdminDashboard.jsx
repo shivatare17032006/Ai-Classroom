@@ -56,8 +56,8 @@ export const AdminDashboard = () => {
 
   // Filter pending vs whitelisted/suspended/expired licenses
   const realLicenses = licenses || [];
-  const pendingLicenses = realLicenses.filter(l => l.status === 'PENDING_VERIFICATION');
-  const activeB2bLicenses = realLicenses.filter(l => l.status !== 'PENDING_VERIFICATION' && l.status !== 'REJECTED');
+  const pendingLicenses = realLicenses.filter(l => l.status && l.status.toUpperCase() === 'PENDING_VERIFICATION');
+  const activeB2bLicenses = realLicenses.filter(l => l.status && (l.status.toUpperCase() === 'ACTIVE' || l.status.toUpperCase() === 'SUSPENDED' || l.status.toUpperCase() === 'EXPIRED'));
 
   // Individual Pro Teachers
   const teacherUsers = users.filter(u => u.role === 'TEACHER');
@@ -237,6 +237,8 @@ export const AdminDashboard = () => {
                       <button 
                         type="button"
                         onClick={() => setActiveDocPreview({
+                          id: lic.id,
+                          licenseObj: lic,
                           fileUrl: lic.proofDocumentUrl || '',
                           fileName: lic.proofDocumentName || 'Institutional_Proof.pdf',
                           fileType: 'pdf',
@@ -670,6 +672,8 @@ export const AdminDashboard = () => {
           docData={activeDocPreview}
           isOpen={!!activeDocPreview}
           onClose={() => setActiveDocPreview(null)}
+          onApprove={() => handleApproveLicense(activeDocPreview.licenseObj || activeDocPreview)}
+          onReject={() => rejectLicense(activeDocPreview.id)}
         />
       )}
     </div>

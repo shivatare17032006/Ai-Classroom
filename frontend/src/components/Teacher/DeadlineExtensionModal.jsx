@@ -1,7 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useClassroom } from '../../context/ClassroomContext';
 import { useAuth } from '../../context/AuthContext';
-import { X, Calendar, Clock, UserCheck, CheckCircle, Users, Sparkles, AlertCircle } from 'lucide-react';
+import { X, Calendar, Clock, UserCheck, CheckCircle, Users, Sparkles } from 'lucide-react';
+
+const formatDateTimeForInput = (dateInput) => {
+  if (!dateInput) return '';
+  const dateObj = new Date(dateInput);
+  if (isNaN(dateObj.getTime())) return '';
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const hours = String(dateObj.getHours()).padStart(2, '0');
+  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
 
 export const DeadlineExtensionModal = ({ isOpen, onClose, defaultAssignmentId, defaultStudentId }) => {
   const { activeClassroom, assignments, grantIndividualExtension, extensions } = useClassroom();
@@ -19,9 +31,23 @@ export const DeadlineExtensionModal = ({ isOpen, onClose, defaultAssignmentId, d
   const [reason, setReason] = useState('Medical leave / documented emergency extension');
   const [extensionMode, setExtensionMode] = useState('INDIVIDUAL'); // 'INDIVIDUAL' | 'ALL'
 
-  // Ensure state is correctly populated whenever modal opens or props change
+  // Ref to ensure state is initialized only when modal is opened, not on every background polling update
+  const prevIsOpenRef = useRef(false);
+
+  const calculateDefaultExtendedDate = (asgId, assignmentsList = assignments) => {
+    const targetAsg = (assignmentsList || []).find(a => a.id === asgId);
+    const baseDate = targetAsg?.dueDate ? new Date(targetAsg.dueDate) : new Date();
+    const validBase = isNaN(baseDate.getTime()) ? new Date() : baseDate;
+    const extendedDate = new Date(validBase.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return formatDateTimeForInput(extendedDate);
+  };
+
+  // Populate state strictly when modal transitions to open or when default props change
   useEffect(() => {
-    if (isOpen) {
+    const isOpening = isOpen && !prevIsOpenRef.current;
+    prevIsOpenRef.current = isOpen;
+
+    if (isOpen && (isOpening || defaultAssignmentId || defaultStudentId)) {
       const initialAsgId = defaultAssignmentId || (assignments.length > 0 ? assignments[0].id : '');
       setAssignmentId(initialAsgId);
 
@@ -34,24 +60,19 @@ export const DeadlineExtensionModal = ({ isOpen, onClose, defaultAssignmentId, d
         setExtensionMode(targetStudentId === 'ALL' ? 'ALL' : 'INDIVIDUAL');
       }
 
-      // Default extended date to 7 days after assignment due date or now
-      const targetAsg = assignments.find(a => a.id === initialAsgId);
-      const baseDate = targetAsg?.dueDate ? new Date(targetAsg.dueDate) : new Date();
-      const extendedDate = new Date(baseDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-      
-      const year = extendedDate.getFullYear();
-      const month = String(extendedDate.getMonth() + 1).padStart(2, '0');
-      const day = String(extendedDate.getDate()).padStart(2, '0');
-      const hours = String(extendedDate.getHours()).padStart(2, '0');
-      const minutes = String(extendedDate.getMinutes()).padStart(2, '0');
-      setExtendedDueDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+      setExtendedDueDate(calculateDefaultExtendedDate(initialAsgId, assignments));
     }
-  }, [isOpen, defaultAssignmentId, defaultStudentId, assignments, activeClassroom]);
+  }, [isOpen, defaultAssignmentId, defaultStudentId]);
 
   if (!isOpen) return null;
 
   const selectedAssignment = assignments.find(a => a.id === assignmentId);
   const selectedStudent = students.find(s => s.id === studentId);
+
+  const handleAssignmentChange = (newAsgId) => {
+    setAssignmentId(newAsgId);
+    setExtendedDueDate(calculateDefaultExtendedDate(newAsgId, assignments));
+  };
 
   const handleModeChange = (mode) => {
     setExtensionMode(mode);
@@ -141,7 +162,7 @@ export const DeadlineExtensionModal = ({ isOpen, onClose, defaultAssignmentId, d
             <select 
               className="form-select" 
               value={assignmentId} 
-              onChange={e => setAssignmentId(e.target.value)}
+              onChange={e => handleAssignmentChange(e.target.value)}
             >
               {assignments.map(a => (
                 <option key={a.id} value={a.id}>{a.title} (Original Due: {new Date(a.dueDate).toLocaleDateString()})</option>
@@ -252,4 +273,5 @@ export const DeadlineExtensionModal = ({ isOpen, onClose, defaultAssignmentId, d
     </div>
   );
 };
+
 

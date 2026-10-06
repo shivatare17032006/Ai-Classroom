@@ -15,7 +15,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-export const DocumentViewerModal = ({ fileUrl, fileName, fileType, docData, isOpen, onClose }) => {
+export const DocumentViewerModal = ({ fileUrl, fileName, fileType, docData, isOpen, onClose, onApprove, onReject }) => {
   const [zoom, setZoom] = useState(100);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [iframeError, setIframeError] = useState(false);
@@ -42,9 +42,9 @@ export const DocumentViewerModal = ({ fileUrl, fileName, fileType, docData, isOp
       <div 
         className="modal-content" 
         style={{ 
-          maxWidth: '920px', 
+          maxWidth: '960px', 
           width: '95%', 
-          maxHeight: '90vh', 
+          maxHeight: '92vh', 
           display: 'flex', 
           flexDirection: 'column',
           padding: '1.25rem',
@@ -54,48 +54,50 @@ export const DocumentViewerModal = ({ fileUrl, fileName, fileType, docData, isOp
         {/* Header */}
         <div className="modal-header" style={{ marginBottom: 0 }}>
           <div className="modal-title" style={{ gap: '0.6rem' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '6px', background: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {isPdf ? <FileText size={18} /> : isImage ? <ImageIcon size={18} /> : <FileCode size={18} />}
+            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--accent-indigo)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {isPdf ? <FileText size={20} /> : isImage ? <ImageIcon size={20} /> : <FileCode size={20} />}
             </div>
             <div>
-              <div style={{ fontSize: '1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>{fileName || 'Document Viewer'}</span>
+              <div style={{ fontSize: '1.05rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>{fileName || docData?.fileName || 'Institutional Proof Document'}</span>
                 {isCloudinary && (
                   <span className="badge badge-info" style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem', gap: '0.2rem' }}>
                     <Cloud size={10} /> Cloudinary Hosted
                   </span>
                 )}
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {isPdf ? 'Portable Document Format (PDF)' : isOfficeDoc ? 'Microsoft Office Document' : isImage ? 'Image Media Preview' : 'Document File'}
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Verification Proof submitted for <strong>{docData?.institutionName || 'Campus'}</strong> (@{docData?.domainExtension ? docData.domainExtension.replace('@', '') : 'domain.edu'})
               </span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {fileUrl && (
-              <a 
-                href={fileUrl} 
-                target="_blank" 
-                rel="noreferrer" 
-                className="btn btn-sm btn-secondary" 
-                title="Open original Cloudinary media URL in new tab"
-                style={{ gap: '0.3rem', fontSize: '0.78rem' }}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {onApprove && (
+              <button 
+                onClick={() => {
+                  onApprove();
+                  onClose();
+                }}
+                className="btn btn-sm btn-primary"
+                style={{ gap: '0.35rem', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', fontWeight: 800, padding: '0.45rem 0.9rem' }}
               >
-                <ExternalLink size={13} /> Cloudinary Direct <Cloud size={11} />
-              </a>
+                <CheckCircle2 size={15} /> Approve & Whitelist Domain
+              </button>
             )}
+
             {fileUrl && (
               <a 
                 href={fileUrl} 
                 download={fileName || 'document'} 
-                className="btn btn-sm btn-primary" 
+                className="btn btn-sm btn-secondary" 
                 title="Download file to computer"
                 style={{ gap: '0.3rem', fontSize: '0.78rem' }}
               >
                 <Download size={13} /> Download
               </a>
             )}
+
             <button onClick={onClose} className="btn btn-secondary btn-icon"><X size={18} /></button>
           </div>
         </div>
