@@ -6,6 +6,8 @@ import com.aiclassroom.model.*;
 import com.aiclassroom.repository.AssignmentRepository;
 import com.aiclassroom.repository.SubmissionRepository;
 import com.aiclassroom.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -13,6 +15,8 @@ import java.util.*;
 
 @Service
 public class SubmissionService {
+    private static final Logger log = LoggerFactory.getLogger(SubmissionService.class);
+
     private final SubmissionRepository submissionRepository;
     private final AssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
@@ -48,6 +52,10 @@ public class SubmissionService {
     }
 
     public Submission submitAssignment(SubmissionRequest req) {
+        log.info("📥 [SUBMISSION INGESTION] Student='{}' (ID: {}), AssignmentId='{}', File='{}' (Type: {}), ContentLength={} chars",
+                req.getStudentName(), req.getStudentId(), req.getAssignmentId(), req.getFileName(), req.getFileType(),
+                req.getContent() != null ? req.getContent().length() : 0);
+
         Optional<Assignment> assignmentOpt = assignmentRepository.findById(req.getAssignmentId());
         Assignment assignment = assignmentOpt.orElse(null);
 
@@ -59,9 +67,11 @@ public class SubmissionService {
                 (existing.getStudentId() != null && req.getStudentId() != null && existing.getStudentId().equalsIgnoreCase(req.getStudentId()));
             if (isSameStudent) {
                 if ("FINALIZED".equals(existing.getStatus())) {
+                    log.warn("⛔ [SUBMISSION REJECTED] Submission is already finalized and locked for student='{}'", req.getStudentName());
                     throw new IllegalStateException("Submission Locked: You have already submitted this assignment and your grade has been finalized by the instructor.");
                 }
                 existingSub = existing;
+                log.info("🔄 [RESUBMISSION DETECTED] Updating existing submissionId='{}' for student='{}'", existingSub.getId(), req.getStudentName());
                 break;
             }
         }
@@ -76,9 +86,11 @@ public class SubmissionService {
                     isLate = true;
                     Boolean allowLate = assignment.getAllowLateSubmissions() != null ? assignment.getAllowLateSubmissions() : true;
                     if (!allowLate) {
+                        log.warn("⛔ [SUBMISSION REJECTED] Late submissions disabled for assignment='{}'", assignment.getTitle());
                         throw new IllegalStateException("Deadline Passed: Submissions for this assignment are closed. Late submissions are not accepted.");
                     }
                     penaltyPct = assignment.getLatePenaltyPercentage() != null ? assignment.getLatePenaltyPercentage() : 10.0;
+                    log.warn("⏰ [LATE SUBMISSION] Student='{}' submitted after deadline. Penalty will be applied: -{}%", req.getStudentName(), penaltyPct);
                 }
             } catch (Exception e) {
                 if (e instanceof IllegalStateException) throw (IllegalStateException) e;
@@ -93,11 +105,17 @@ public class SubmissionService {
         String submissionId = existingSub != null ? existingSub.getId() : ("sub-" + System.currentTimeMillis());
         String nowStr = LocalDateTime.now().toString();
 
+        String sanitizedContent = cleanNullBytes(req.getContent());
+        String sanitizedFileName = cleanNullBytes(req.getFileName());
+        String sanitizedFileUrl = cleanNullBytes(req.getFileUrl());
+        String sanitizedFileType = cleanNullBytes(req.getFileType());
+        String sanitizedStudentName = cleanNullBytes(req.getStudentName());
+
         // Perform multi-algorithm Plagiarism Analysis
         PlagiarismService.PlagiarismReport plagReport = plagiarismService.analyzePlagiarism(
                 submissionId,
                 req.getStudentId(),
-                req.getContent(),
+                sanitizedContent,
                 existingSubmissions,
                 similarityThreshold
         );
@@ -105,16 +123,19 @@ public class SubmissionService {
         double similarityScore = plagReport.getSimilarityPercentage();
         boolean isPlagiarized = !bypassPlagiarism && "FLAGGED_PLAGIARISM".equals(plagReport.getStatus());
 
+        log.info("🛡️ [PLAGIARISM AUDIT] SubmissionId='{}', Student='{}', SimilarityScore={}% (Threshold: {}%), Status='{}'",
+                submissionId, sanitizedStudentName, similarityScore, similarityThreshold, plagReport.getStatus());
+
         Submission submission = existingSub != null ? existingSub : new Submission();
         submission.setId(submissionId);
         submission.setAssignmentId(req.getAssignmentId());
         submission.setStudentId(req.getStudentId());
-        submission.setStudentName(req.getStudentName());
+        submission.setStudentName(sanitizedStudentName);
         submission.setSubmittedAt(nowStr);
-        submission.setContent(req.getContent());
-        submission.setFileName(req.getFileName());
-        submission.setFileUrl(req.getFileUrl());
-        submission.setFileType(req.getFileType());
+        submission.setContent(sanitizedContent);
+        submission.setFileName(sanitizedFileName);
+        submission.setFileUrl(sanitizedFileUrl);
+        submission.setFileType(sanitizedFileType);
         submission.setSimilarityPercentage(similarityScore);
         submission.setPlagiarismStatus(isPlagiarized ? "FLAGGED_PLAGIARISM" : "ACCEPTED");
         submission.setAiEvaluated(!isPlagiarized);
@@ -150,13 +171,20 @@ public class SubmissionService {
                 double penaltyDeduction = Math.round(totalMarks * (penaltyPct / 100.0) * 10.0) / 10.0;
                 aiScore = Math.max(0.0, Math.round((rawScore - penaltyDeduction) * 10.0) / 10.0);
                 feedback = feedback + String.format("\n[LATE SUBMISSION PENALTY APPLIED: -%.1f%% (-%.1f marks) deducted for submitting after deadline.]", penaltyPct, penaltyDeduction);
+                log.info("📉 [PENALTY APPLIED] RawScore={} -> FinalScore={} (-{} marks deduction)", rawScore, aiScore, penaltyDeduction);
             }
 
             submission.setAiSuggestedGrade(aiScore);
             submission.setAiRubricBreakdown(springAiResult.getRubricBreakdown());
             submission.setAiFeedback(feedback);
+
+            log.info("🤖 [AI EVALUATION COMPLETED] SubmissionId='{}', Student='{}', Score={}/{}, Relevance={}%, OffTopic={}",
+                    submissionId, req.getStudentName(), aiScore, totalMarks, springAiResult.getRelevanceScore(), springAiResult.isOffTopic());
+            log.info("📊 [RUBRIC BREAKDOWN] SubmissionId='{}', RubricScores={}", submissionId, springAiResult.getRubricBreakdown());
         } else if (isPlagiarized) {
             submission.setAiFeedback("Submission rejected prior to AI grading. Similarity " + similarityScore + "% exceeds allowed threshold (" + similarityThreshold + "%).");
+            log.warn("🚨 [PLAGIARISM ALERT] SubmissionId='{}' flagged for high similarity ({}% > {}%). Auto-dispatching alert to instructor.",
+                    submissionId, similarityScore, similarityThreshold);
 
             // Dispatch notification to teacher
             notificationService.sendNotification(Notification.builder()
@@ -170,7 +198,9 @@ public class SubmissionService {
                     .build());
         }
 
-        return submissionRepository.save(submission);
+        Submission saved = submissionRepository.save(submission);
+        log.info("💾 [SUBMISSION PERSISTED] Successfully saved submissionId='{}' to PostgreSQL database.", saved.getId());
+        return saved;
     }
 
     public Optional<Submission> reviewAiGrade(String submissionId, ReviewGradeRequest reviewReq) {
@@ -196,6 +226,8 @@ public class SubmissionService {
         sub.setIsBelowThreshold(isBelow);
 
         Submission updated = submissionRepository.save(sub);
+        log.info("👨‍🏫 [INSTRUCTOR GRADE REVIEW] SubmissionId='{}', Student='{}', FinalScore={}/{}, BelowThreshold={}, Comments='{}'",
+                submissionId, sub.getStudentName(), finalScore, maxMarks, isBelow, reviewReq.getTeacherComments());
 
         // Auto-dispatch notifications if score falls below minimum threshold
         if (isBelow) {
@@ -230,5 +262,10 @@ public class SubmissionService {
         }
 
         return Optional.of(updated);
+    }
+
+    private String cleanNullBytes(String val) {
+        if (val == null) return null;
+        return val.replace("\u0000", "").replace("\0", "");
     }
 }

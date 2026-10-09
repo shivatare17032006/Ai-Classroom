@@ -1,5 +1,7 @@
 package com.aiclassroom.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -11,6 +13,7 @@ import java.util.regex.Pattern;
 
 @Service
 public class GeminiService {
+    private static final Logger log = LoggerFactory.getLogger(GeminiService.class);
 
     @Value("${gemini.api.key:AIzaSy_DEFAULT_GEMINI_KEY}")
     private String apiKey;
@@ -29,11 +32,15 @@ public class GeminiService {
             return performFallbackEvaluation(studentSubmission, assignmentPrompt);
         }
 
-        // Candidate Gemini API model endpoints
-        String[] modelEndpoints = new String[]{
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey,
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=" + apiKey,
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey
+        boolean isGcpOAuthToken = apiKey.startsWith("ya29.");
+
+        // Candidate Gemini API model endpoints (supports latest available models)
+        String[] modelNames = new String[]{
+            "gemini-3.8-flash",
+            "gemini-flash-latest",
+            "gemini-3.5-flash",
+            "gemini-2.5-flash",
+            "gemini-1.5-flash-latest"
         };
 
         String promptText = String.format(
@@ -42,11 +49,11 @@ public class GeminiService {
             "RUBRIC CRITERIA:\n%s\n\n" +
             "STUDENT SUBMISSION:\n%s\n\n" +
             "EVALUATION INSTRUCTIONS:\n" +
-            "1. TOPIC & RELEVANCE CHECK: First evaluate if the student submission actually answers the specific assignment question, topic, and requirements specified by the teacher above. If the student submitted content for a wrong question, completely different topic/technology, or random text, assign SCORE: 0/10 with status REJECTED.\n" +
-            "2. ACCURACY & QUALITY: If the submission directly answers the prompt, score objectively based on completeness, technical/academic accuracy, and fulfillment of the instructions.\n" +
+            "1. TOPIC & RELEVANCE CHECK: Evaluate if the student submission answers the specific assignment topic and requirements. Note that valid source code submissions (e.g. C, C++, Java, Python implementing algorithms like FCFS, SJF, Sorting, SQL queries, etc.) that fulfill the prompt requirements must be marked RELEVANT even if acronyms like 'FCFS' are expanded into algorithm logic, function names, or code constructs.\n" +
+            "2. ACCURACY & QUALITY: If the submission directly answers the prompt, score objectively based on completeness, technical/academic accuracy, and fulfillment of instructions.\n" +
             "3. Start your response with line 1 strictly formatted as:\n" +
             "   SCORE: [X]/10\n" +
-            "   (where X is 0.0 to 10.0 based on relevance and solution quality; award 0.0 for wrong topic/question)\n" +
+            "   (where X is 0.0 to 10.0 based on relevance and solution quality)\n" +
             "4. Line 2: RELEVANCE: [Y]%%\n" +
             "5. Line 3: FEEDBACK: [Detailed constructive explanation of the score awarded].",
             assignmentPrompt, rubricDetails != null ? rubricDetails : "Standard Academic Criteria", studentSubmission
@@ -54,6 +61,9 @@ public class GeminiService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        if (isGcpOAuthToken) {
+            headers.setBearerAuth(apiKey.trim());
+        }
 
         Map<String, Object> textPart = new HashMap<>();
         textPart.put("text", promptText);
@@ -66,8 +76,12 @@ public class GeminiService {
 
         HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
 
-        for (String endpoint : modelEndpoints) {
+        for (String model : modelNames) {
+            String endpoint = isGcpOAuthToken
+                ? "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent"
+                : "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey.trim();
             try {
+                log.info("🌐 [GEMINI API DISPATCH] Calling Gemini model='{}' (AuthType={})", model, isGcpOAuthToken ? "GCP OAuth Bearer" : "API Key");
                 ResponseEntity<Map> response = restTemplate.exchange(endpoint, HttpMethod.POST, requestEntity, Map.class);
                 if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                     List candidates = (List) response.getBody().get("candidates");
@@ -79,13 +93,14 @@ public class GeminiService {
                             Map firstPart = (Map) parts.get(0);
                             String resText = (String) firstPart.get("text");
                             if (resText != null && !resText.trim().isEmpty()) {
+                                log.info("✅ [GEMINI API RESPONSE RECEIVED] Model='{}' responded successfully. Length={} chars", model, resText.length());
                                 return resText;
                             }
                         }
                     }
                 }
             } catch (Exception e) {
-                // Continue to next endpoint attempt
+                log.warn("⚠️ [GEMINI API ENDPOINT SKIPPED] Model='{}' failed: {}. Trying next candidate model...", model, e.getMessage());
             }
         }
 
@@ -118,46 +133,92 @@ public class GeminiService {
             return "SCORE: 0.0/10\nRELEVANCE: 0.0%\nFEEDBACK: REJECTED - Critical Technology Mismatch: Submitted SQL query syntax for a MongoDB NoSQL assignment. Awarded 0/10.";
         }
 
-        // Extract key technical/subject terms from prompt (filter out generic stopwords)
         Set<String> stopWords = new HashSet<>(Arrays.asList(
             "the", "is", "at", "which", "on", "a", "an", "and", "or", "to", "in", "for", "of", "with", "by", "from",
-            "write", "submit", "assignment", "solution", "create", "please", "should", "have", "must", "using", "code",
-            "explain", "example", "each", "them", "question", "cmds", "commands", "cmd", "topic", "details"
+            "please", "should", "have", "must", "using"
         ));
 
         String[] promptTokens = lowerPrompt.replaceAll("[^a-z0-9\\s]", " ").split("\\s+");
         Set<String> keyPromptTerms = new HashSet<>();
         for (String t : promptTokens) {
-            if (t.length() > 2 && !stopWords.contains(t)) {
+            if (t.length() >= 2 && !stopWords.contains(t)) {
                 keyPromptTerms.add(t);
             }
         }
 
-        if (keyPromptTerms.isEmpty()) {
-            keyPromptTerms.addAll(Arrays.asList(promptTokens));
-        }
+        Set<String> expandedConceptTerms = SpringAiGradingService.getExpandedConceptTerms(lowerPrompt);
 
         int matchCount = 0;
         for (String term : keyPromptTerms) {
-            if (lowerContent.contains(term)) {
+            if (SpringAiGradingService.containsWordOrPhrase(lowerContent, term)) {
                 matchCount++;
             }
         }
 
-        double relevanceRatio = keyPromptTerms.size() > 0 ? (double) matchCount / keyPromptTerms.size() : 0.5;
+        int conceptMatchCount = 0;
+        for (String concept : expandedConceptTerms) {
+            if (SpringAiGradingService.containsWordOrPhrase(lowerContent, concept)) {
+                conceptMatchCount++;
+            }
+        }
+
+        boolean isCode = SpringAiGradingService.isRecognizedCodeSubmission(content);
+
+        double baseRatio = keyPromptTerms.size() > 0 ? (double) matchCount / keyPromptTerms.size() : 0.5;
+        double conceptRatio = expandedConceptTerms.size() > 0 ? Math.min(1.0, (double) conceptMatchCount / 2.0) : 0.0;
+
+        double relevanceRatio = Math.max(baseRatio, conceptRatio);
+        if (isCode && (conceptMatchCount > 0 || matchCount > 0)) {
+            relevanceRatio = Math.max(relevanceRatio, 0.85);
+        }
+
         double relevancePercentage = Math.min(100.0, Math.round(relevanceRatio * 100.0 * 10.0) / 10.0);
 
-        if (relevanceRatio < 0.20) {
+        if (relevanceRatio < 0.15 && !isCode && conceptMatchCount == 0) {
             return String.format(
-                "SCORE: 0.0/10\nRELEVANCE: %.1f%%\nFEEDBACK: REJECTED - Topic Mismatch: Submission content shares less than 20%% relevance with the teacher's assignment prompt. Expected solution for \"%s\".",
+                "SCORE: 0.0/10\nRELEVANCE: %.1f%%\nFEEDBACK: REJECTED - Complete Topic Mismatch: Submission content shares less than 15%% relevance with the teacher's assignment prompt. Expected solution for \"%s\".",
                 relevancePercentage, prompt.length() > 60 ? prompt.substring(0, 60) + "..." : prompt
             );
         }
 
-        double scoreVal = Math.min(10.0, Math.round((5.0 + (relevanceRatio * 5.0)) * 10.0) / 10.0);
+        // Completeness checks
+        double completenessFactor = 1.0;
+        List<String> missingElements = new ArrayList<>();
+        boolean asksForCode = lowerPrompt.contains("program") || lowerPrompt.contains("code") || lowerPrompt.contains("algo") || lowerPrompt.contains("implement");
+        if (asksForCode && !isCode) {
+            completenessFactor -= 0.35;
+            missingElements.add("Source code implementation");
+        }
+
+        if (lowerPrompt.contains("fcfs") || lowerPrompt.contains("scheduling") || lowerPrompt.contains("sjf") || lowerPrompt.contains("rr")) {
+            boolean hasWaiting = lowerContent.contains("wt") || lowerContent.contains("waiting") || lowerContent.contains("wait");
+            boolean hasTurnaround = lowerContent.contains("tat") || lowerContent.contains("turnaround") || lowerContent.contains("turn_around") || lowerContent.contains("completion");
+            boolean hasBurst = lowerContent.contains("bt") || lowerContent.contains("burst") || lowerContent.contains("burst_time") || lowerContent.contains("time");
+            boolean hasLoop = lowerContent.contains("for") || lowerContent.contains("while") || lowerContent.contains("loop") || lowerContent.contains("schedule");
+
+            if (!hasWaiting) { completenessFactor -= 0.10; missingElements.add("Waiting time calculation (WT)"); }
+            if (!hasTurnaround) { completenessFactor -= 0.10; missingElements.add("Turnaround time calculation (TAT)"); }
+            if (!hasBurst) { completenessFactor -= 0.05; missingElements.add("Burst time processing"); }
+            if (!hasLoop) { completenessFactor -= 0.10; missingElements.add("Scheduling loop execution"); }
+        }
+
+        if (content.trim().length() < 70) {
+            completenessFactor -= 0.15;
+            missingElements.add("Sufficient implementation detail");
+        }
+
+        completenessFactor = Math.max(0.20, Math.min(1.0, completenessFactor));
+
+        double baseScore = 8.5 + (relevanceRatio * 1.5);
+        double finalScore = Math.min(10.0, Math.round((baseScore * completenessFactor) * 10.0) / 10.0);
+
+        String feedbackMsg = missingElements.isEmpty()
+            ? "Academic Submission Evaluated Successfully: Valid technical concepts and complete solution structures present."
+            : "Academic Submission Evaluated with Deductions: Missing components: " + String.join(", ", missingElements) + ". Marks deducted accordingly.";
+
         return String.format(
-            "SCORE: %.1f/10\nRELEVANCE: %.1f%%\nFEEDBACK: Academic Submission Evaluated: Addresses assignment prompt requirements.",
-            scoreVal, relevancePercentage
+            "SCORE: %.1f/10\nRELEVANCE: %.1f%%\nFEEDBACK: %s",
+            finalScore, relevancePercentage, feedbackMsg
         );
     }
 
@@ -183,7 +244,7 @@ public class GeminiService {
             // Ignore parsing error
         }
 
-        if (feedbackText.contains("REJECTED") || feedbackText.contains("0.0/10") || feedbackText.contains("Off-Topic")) {
+        if (feedbackText.toLowerCase().contains("rejected") || feedbackText.contains("SCORE: 0.0/10") || feedbackText.contains("SCORE: 0/10")) {
             return 0.0;
         }
 

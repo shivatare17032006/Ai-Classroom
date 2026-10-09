@@ -11,6 +11,7 @@ public class Certificate {
     @Id
     private String id;
     private String studentId;
+    private String studentEmail;
     private String studentName;
     private String title;
     private String category;
@@ -29,9 +30,10 @@ public class Certificate {
     public Certificate() {
     }
 
-    public Certificate(String id, String studentId, String studentName, String title, String category, String issuer, String issueDate, String credentialUrl, String fileUrl, String fileName, String fileType, String description, Boolean verified) {
+    public Certificate(String id, String studentId, String studentEmail, String studentName, String title, String category, String issuer, String issueDate, String credentialUrl, String fileUrl, String fileName, String fileType, String description, Boolean verified) {
         this.id = id;
         this.studentId = studentId;
+        this.studentEmail = studentEmail;
         this.studentName = studentName;
         this.title = title;
         this.category = category;
@@ -50,6 +52,9 @@ public class Certificate {
 
     public String getStudentId() { return studentId; }
     public void setStudentId(String studentId) { this.studentId = studentId; }
+
+    public String getStudentEmail() { return studentEmail; }
+    public void setStudentEmail(String studentEmail) { this.studentEmail = studentEmail; }
 
     public String getStudentName() { return studentName; }
     public void setStudentName(String studentName) { this.studentName = studentName; }
@@ -89,6 +94,7 @@ public class Certificate {
     public static class CertificateBuilder {
         private String id;
         private String studentId;
+        private String studentEmail;
         private String studentName;
         private String title;
         private String category;
@@ -103,6 +109,7 @@ public class Certificate {
 
         public CertificateBuilder id(String id) { this.id = id; return this; }
         public CertificateBuilder studentId(String studentId) { this.studentId = studentId; return this; }
+        public CertificateBuilder studentEmail(String studentEmail) { this.studentEmail = studentEmail; return this; }
         public CertificateBuilder studentName(String studentName) { this.studentName = studentName; return this; }
         public CertificateBuilder title(String title) { this.title = title; return this; }
         public CertificateBuilder category(String category) { this.category = category; return this; }
@@ -116,7 +123,7 @@ public class Certificate {
         public CertificateBuilder verified(Boolean verified) { this.verified = verified; return this; }
 
         public Certificate build() {
-            return new Certificate(id, studentId, studentName, title, category, issuer, issueDate, credentialUrl, fileUrl, fileName, fileType, description, verified);
+            return new Certificate(id, studentId, studentEmail, studentName, title, category, issuer, issueDate, credentialUrl, fileUrl, fileName, fileType, description, verified);
         }
     }
 }

@@ -83,7 +83,9 @@ export const SubmitAssignmentModal = ({ assignment, isOpen, onClose }) => {
     const combinedContent = (extractedContent ? extractedContent + '\n\n' : '') + 
       (studentNotes ? `[Student Notes]: ${studentNotes}` : '');
 
-    const finalContent = combinedContent.trim() || (fileName ? `[Attached File Submission: ${fileName}]` : '');
+    const finalContent = (combinedContent.trim() || (fileName ? `[Attached File Submission: ${fileName}]` : ''))
+      .replace(/\0/g, '')
+      .replace(/\u0000/g, '');
 
     if (!finalContent) {
       setResultMessage({

@@ -25,37 +25,56 @@ export const TeacherCertificatesView = ({ classroom }) => {
   const activeClass = classroom || (selectedClassId !== 'ALL' ? safeClassrooms.find(c => c.id === selectedClassId) : null);
 
   // Compute set of enrolled student IDs and Emails
-  const enrolledStudents = React.useMemo(() => {
-    if (activeClass) {
-      const studentIds = Array.isArray(activeClass.studentIds) ? activeClass.studentIds : [];
-      return safeUsers.filter(u => u.role === 'STUDENT' && studentIds.includes(u.id));
-    } else {
-      // If "ALL" classrooms selected for this teacher, collect all students across all teacher's classrooms
-      const allStudentIds = new Set();
-      teacherClassrooms.forEach(c => {
-        if (Array.isArray(c.studentIds)) {
-          c.studentIds.forEach(id => allStudentIds.add(id));
-        }
-      });
-      return safeUsers.filter(u => u.role === 'STUDENT' && allStudentIds.has(u.id));
-    }
-  }, [activeClass, teacherClassrooms, safeUsers]);
-
   const enrolledStudentIdsSet = React.useMemo(() => {
     const set = new Set();
-    enrolledStudents.forEach(s => {
-      if (s.id) set.add(s.id);
-      if (s.email) set.add(s.email.toLowerCase());
+
+    const targetClassrooms = activeClass ? [activeClass] : teacherClassrooms;
+    targetClassrooms.forEach(cls => {
+      if (Array.isArray(cls.studentIds)) {
+        cls.studentIds.forEach(id => {
+          if (id) set.add(id.toString().toLowerCase());
+        });
+      }
     });
+
+    safeUsers.forEach(u => {
+      if (u.role === 'STUDENT') {
+        const uId = (u.id || '').toString().toLowerCase();
+        const uEmail = (u.email || '').toString().toLowerCase();
+        if (set.has(uId) || set.has(uEmail)) {
+          if (uId) set.add(uId);
+          if (uEmail) set.add(uEmail);
+        }
+      }
+    });
+
     return set;
-  }, [enrolledStudents]);
+  }, [activeClass, teacherClassrooms, safeUsers]);
+
+  const enrolledStudentsCount = React.useMemo(() => {
+    const set = new Set();
+    const targetClassrooms = activeClass ? [activeClass] : teacherClassrooms;
+    targetClassrooms.forEach(cls => {
+      if (Array.isArray(cls.studentIds)) {
+        cls.studentIds.forEach(id => {
+          if (id) set.add(id.toString().toLowerCase());
+        });
+      }
+    });
+    return set.size;
+  }, [activeClass, teacherClassrooms]);
 
   // Filter certificates: ONLY show certificates of students who are ENROLLED in the active classroom context
   const classroomCertificates = safeCertificates.filter(c => {
-    if (!c || !c.studentId) return false;
-    const certStudentId = c.studentId;
-    const certStudentEmail = c.studentEmail ? c.studentEmail.toLowerCase() : '';
-    return enrolledStudentIdsSet.has(certStudentId) || (certStudentEmail && enrolledStudentIdsSet.has(certStudentEmail));
+    if (!c) return false;
+    const certStudentId = (c.studentId || '').toString().toLowerCase();
+    const certStudentEmail = (c.studentEmail || '').toString().toLowerCase();
+
+    // Fallback: If teacher has no classrooms created yet, display certificates
+    if (teacherClassrooms.length === 0) return true;
+
+    return (certStudentId && enrolledStudentIdsSet.has(certStudentId)) || 
+           (certStudentEmail && enrolledStudentIdsSet.has(certStudentEmail));
   });
 
   const filteredCertificates = classroomCertificates.filter(c => {
@@ -79,7 +98,7 @@ export const TeacherCertificatesView = ({ classroom }) => {
               Enrolled Student Certificates & Achievements
             </h3>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-              Viewing uploaded credentials for students enrolled in <strong>{activeClass ? activeClass.name : 'your classrooms'}</strong> ({enrolledStudents.length} enrolled students).
+              Viewing uploaded credentials for students enrolled in <strong>{activeClass ? activeClass.name : 'your classrooms'}</strong> ({enrolledStudentsCount} enrolled students).
             </p>
           </div>
           <span className="badge badge-purple">{filteredCertificates.length} Enrolled Certificates</span>
@@ -149,7 +168,7 @@ export const TeacherCertificatesView = ({ classroom }) => {
             <Award size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem', display: 'block' }} />
             <h4 style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>No Student Certificates Found</h4>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
-              {enrolledStudents.length === 0 
+              {enrolledStudentsCount === 0 
                 ? 'There are no enrolled students in this classroom yet.' 
                 : 'Enrolled students in this class have not uploaded any certificates yet.'}
             </p>

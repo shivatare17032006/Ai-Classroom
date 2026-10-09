@@ -1,4 +1,25 @@
 import JSZip from 'jszip';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '3.11.174'}/pdf.worker.min.js`;
+  } catch (e) {}
+}
+
+/**
+ * Sanitizes extracted text by stripping null bytes and illegal control characters
+ * to prevent PostgreSQL UTF-8 database insertion errors (0x00).
+ */
+export function sanitizeExtractedText(str) {
+  if (!str) return '';
+  return str
+    .replace(/\0/g, '')
+    .replace(/\u0000/g, '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ' ')
+    .trim();
+}
 
 /**
  * Main file text extraction utility supporting:
@@ -10,20 +31,28 @@ import JSZip from 'jszip';
  */
 export async function extractTextFromFile(file) {
   const fileType = getFileType(file.name);
+  let result = '';
 
   switch (fileType) {
     case 'DOCX':
-      return await extractFromDocx(file);
+      result = await extractFromDocx(file);
+      break;
     case 'PPTX':
-      return await extractFromPptx(file);
+      result = await extractFromPptx(file);
+      break;
     case 'PDF':
-      return await extractFromPdf(file);
+      result = await extractFromPdf(file);
+      break;
     case 'IMAGE':
-      return await extractFromImage(file);
+      result = await extractFromImage(file);
+      break;
     case 'TEXT':
     default:
-      return await extractFromPlainText(file);
+      result = await extractFromPlainText(file);
+      break;
   }
+
+  return sanitizeExtractedText(result);
 }
 
 /**
@@ -135,43 +164,81 @@ async function extractFromPptx(file) {
 }
 
 /**
- * Extracts text from PDF using text stream decoding
+ * Extracts text from PDF using PDF.js engine with resilient stream parsing fallback
  */
 async function extractFromPdf(file) {
   try {
     const arrayBuffer = await file.arrayBuffer();
+
+    // 1. Primary: Accurate page-by-page text extraction via PDF.js
+    try {
+      const loadingTask = pdfjsLib.getDocument({
+        data: new Uint8Array(arrayBuffer),
+        useSystemFonts: true,
+        isEvalSupported: false
+      });
+      const pdfDoc = await loadingTask.promise;
+      let pagesText = [];
+
+      for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+        const page = await pdfDoc.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const pageStrings = (textContent.items || [])
+          .map(item => (item.str || '').trim())
+          .filter(Boolean);
+
+        if (pageStrings.length > 0) {
+          pagesText.push(`--- Page ${pageNum} ---\n` + pageStrings.join(' '));
+        }
+      }
+
+      const fullText = pagesText.join('\n\n');
+      if (fullText.trim().length > 10) {
+        return sanitizeExtractedText(`[PDF Document Extracted Content from ${file.name}]\n\n` + fullText);
+      }
+    } catch (pdfErr) {
+      console.warn('PDF.js parse warning, using secondary stream scanner fallback:', pdfErr);
+    }
+
+    // 2. Secondary fallback: Extract text inside PDF parentheses syntax (e.g. (Hello World) Tj)
     const bytes = new Uint8Array(arrayBuffer);
-    const decoder = new TextDecoder('utf-8', { fatal: false });
+    const decoder = new TextDecoder('latin1', { fatal: false });
     const pdfText = decoder.decode(bytes);
 
-    // Extract text streams inside PDF bracket syntax (e.g., (text) TJ or (text) Tj)
-    const textMatches = pdfText.match(/\(([^)]+)\)\s*(?:Tj|TJ)/g) || [];
-    const extractedStrings = textMatches
-      .map(m => m.replace(/^\(/, '').replace(/\)\s*(?:Tj|TJ)$/, ''))
-      .filter(s => s.trim().length > 1);
+    const parenMatches = pdfText.match(/\(([^)]+)\)/g) || [];
+    const parenClean = parenMatches
+      .map(m => m.replace(/[()]/g, '').trim())
+      .filter(s => s.length > 1 && !s.startsWith('/') && !s.toLowerCase().includes('adobe') && !s.toLowerCase().includes('font'));
 
-    if (extractedStrings.length > 5) {
-      return `[PDF Document Extracted Content from ${file.name}]\n\n` + extractedStrings.join(' ');
+    if (parenClean.length > 3) {
+      return sanitizeExtractedText(`[PDF Document Extracted Content from ${file.name}]\n\n` + parenClean.join(' '));
     }
 
-    // Secondary text block match: BT ... ET blocks
-    const btBlocks = pdfText.match(/BT[\s\S]*?ET/g) || [];
-    const blockTexts = [];
-    for (const block of btBlocks) {
-      const innerMatches = block.match(/\(([^)]+)\)/g);
-      if (innerMatches) {
-        const clean = innerMatches.map(m => m.replace(/[()]/g, '')).join(' ');
-        if (clean.trim()) blockTexts.push(clean.trim());
-      }
+    // 3. Fallback: Filtered printable ASCII runs
+    const asciiLines = pdfText.match(/[A-Za-z0-9#_+\-*/=(){}<>;:,."'\\s]{5,}/g) || [];
+    const filteredLines = asciiLines
+      .map(l => l.trim())
+      .filter(l => 
+        l.length > 4 &&
+        !l.includes('PDF-') &&
+        !l.includes('endobj') &&
+        !l.includes('endstream') &&
+        !l.includes('/Font') &&
+        !l.includes('/Parent') &&
+        !l.includes('/MediaBox') &&
+        !l.includes('/Catalog') &&
+        !l.includes('/Contents')
+      );
+
+    if (filteredLines.length > 3) {
+      return sanitizeExtractedText(`[PDF Document Extracted Content from ${file.name}]\n\n` + filteredLines.slice(0, 80).join('\n'));
     }
 
-    if (blockTexts.length > 0) {
-      return `[PDF Document Extracted Content from ${file.name}]\n\n` + blockTexts.join('\n');
-    }
-
-    return `[PDF Document Submission: ${file.name}]\nPDF file uploaded and attached. Extracted text will be analyzed by AI grading engine.`;
+    const combined = parenClean.join(' ') || filteredLines.join(' ');
+    return sanitizeExtractedText(`[PDF Document Extracted Content from ${file.name}]\n\n` + (combined.length > 5 ? combined : `Submission Content from PDF File: ${file.name}`));
   } catch (err) {
-    return `[PDF Document: ${file.name}]\nAttached PDF submission.`;
+    console.error('PDF extraction error:', err);
+    return sanitizeExtractedText(`[PDF Document: ${file.name}]\nAttached PDF submission file.`);
   }
 }
 

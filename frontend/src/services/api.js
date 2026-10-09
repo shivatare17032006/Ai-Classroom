@@ -357,11 +357,11 @@ export const ApiService = {
       body: JSON.stringify({
         assignmentId: submissionData.assignmentId,
         studentId: submissionData.studentId,
-        studentName: submissionData.studentName,
-        content: submissionData.content,
-        fileName: submissionData.fileName,
-        fileUrl: submissionData.fileUrl,
-        fileType: submissionData.fileType
+        studentName: (submissionData.studentName || '').replace(/\0/g, '').replace(/\u0000/g, ''),
+        content: (submissionData.content || '').replace(/\0/g, '').replace(/\u0000/g, ''),
+        fileName: (submissionData.fileName || '').replace(/\0/g, '').replace(/\u0000/g, ''),
+        fileUrl: submissionData.fileUrl || null,
+        fileType: submissionData.fileType || 'TEXT'
       })
     });
 
@@ -398,25 +398,57 @@ export const ApiService = {
       const contentText = (submissionData.content || '').toLowerCase();
       const promptText = ((assignment.title || '') + ' ' + (assignment.description || '') + ' ' + (assignment.requiredTopic || '')).toLowerCase();
 
-      const stopWords = new Set(['the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'to', 'in', 'for', 'of', 'with', 'by', 'from', 'write', 'submit', 'assignment', 'solution', 'code', 'problem', 'process', 'method', 'program', 'system', 'data', 'app', 'cmds', 'commands', 'cmd', 'explain', 'example', 'each', 'them', 'topic']);
-      const promptWords = promptText.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
+      // Concept expansions for domain acronyms
+      const conceptSynonyms = [];
+      if (promptText.includes('fcfs') || promptText.includes('first come')) {
+        conceptSynonyms.push('fcfs', 'first come', 'first-come', 'first served', 'first-served', 'cpu scheduling', 'scheduling', 'burst', 'arrival', 'waiting', 'turnaround', 'tat', 'wt', 'bt', 'at', 'gantt', 'process');
+      }
+      if (promptText.includes('sjf') || promptText.includes('shortest job')) {
+        conceptSynonyms.push('sjf', 'shortest job', 'srtf', 'burst', 'scheduling', 'wt', 'tat', 'bt');
+      }
+      if (promptText.includes('round robin') || promptText.includes('rr')) {
+        conceptSynonyms.push('round robin', 'rr', 'quantum', 'time quantum', 'slice', 'scheduling');
+      }
+      if (promptText.includes('sql') || promptText.includes('database')) {
+        conceptSynonyms.push('sql', 'select', 'from', 'where', 'join', 'insert', 'create', 'table', 'database');
+      }
+      if (promptText.includes('mongo') || promptText.includes('nosql')) {
+        conceptSynonyms.push('mongo', 'mongodb', 'nosql', 'db.', 'find', 'aggregate', 'collection');
+      }
+
+      const isRecognizedCode = /#include|stdio\.h|iostream|public class|public static void main|def |import |function|const |let |console\.log|select |from |where |struct |int main|printf|scanf|malloc/i.test(submissionData.content || '');
+
+      const stopWords = new Set(['the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'to', 'in', 'for', 'of', 'with', 'by', 'from', 'please', 'should', 'have', 'must', 'using']);
+      const promptWords = promptText.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length >= 2 && !stopWords.has(w));
       
       let matches = 0;
       promptWords.forEach(w => {
         if (contentText.includes(w)) matches++;
       });
 
-      const relevanceRatio = promptWords.length > 0 ? matches / promptWords.length : 0.5;
+      let conceptMatches = 0;
+      conceptSynonyms.forEach(c => {
+        if (contentText.includes(c)) conceptMatches++;
+      });
+
+      const baseRatio = promptWords.length > 0 ? matches / promptWords.length : 0.5;
+      const conceptRatio = conceptSynonyms.length > 0 ? Math.min(1.0, conceptMatches / 2) : 0;
+      let relevanceRatio = Math.max(baseRatio, conceptRatio);
+
+      if (isRecognizedCode && (conceptMatches > 0 || matches > 0 || promptWords.length <= 2)) {
+        relevanceRatio = Math.max(relevanceRatio, 0.85);
+      }
 
       let aiScore = 0;
       let aiFeedbackText = '';
 
-      if (contentText.length < 100 && relevanceRatio < 0.15) {
+      if (contentText.length < 15 && relevanceRatio < 0.15 && !isRecognizedCode) {
         aiScore = 0;
         aiFeedbackText = `SCORE: 0/${totalMarks} - REJECTED (Topic Mismatch): Submission content shares insufficient relevance with the teacher's assignment prompt. Assigned 0 marks.`;
       } else {
-        aiScore = Math.min(totalMarks, Math.round(totalMarks * 0.95 * 10) / 10);
-        aiFeedbackText = `SCORE: ${aiScore}/${totalMarks} - High Quality Academic Submission: Successfully answers the teacher's assignment prompt requirements and key concepts.`;
+        const scoreRatio = relevanceRatio >= 0.70 || isRecognizedCode ? 0.90 : Math.max(0.5, relevanceRatio);
+        aiScore = Math.min(totalMarks, Math.round(totalMarks * scoreRatio * 10) / 10);
+        aiFeedbackText = `SCORE: ${aiScore}/${totalMarks} - High Quality Academic Submission: Successfully answers the teacher's assignment prompt requirements and technical concepts.`;
       }
 
       const aiRubricBreakdown = {};

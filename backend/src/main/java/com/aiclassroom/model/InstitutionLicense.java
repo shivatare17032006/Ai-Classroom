@@ -91,6 +91,16 @@ public class InstitutionLicense {
     public LocalDateTime getExpiresAt() { return expiresAt; }
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
 
+    @PrePersist
+    @PreUpdate
+    public void sanitizeNullBytes() {
+        if (this.institutionName != null) this.institutionName = this.institutionName.replace("\u0000", "");
+        if (this.contactName != null) this.contactName = this.contactName.replace("\u0000", "");
+        if (this.contactEmail != null) this.contactEmail = this.contactEmail.replace("\u0000", "");
+        if (this.proofDocumentName != null) this.proofDocumentName = this.proofDocumentName.replace("\u0000", "");
+        if (this.proofDocumentUrl != null) this.proofDocumentUrl = this.proofDocumentUrl.replace("\u0000", "");
+    }
+
     public static InstitutionLicenseBuilder builder() { return new InstitutionLicenseBuilder(); }
 
     public static class InstitutionLicenseBuilder {

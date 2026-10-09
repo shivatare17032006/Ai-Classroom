@@ -469,3 +469,149 @@ h1, h2, h3, h4, h5, h6 {
     padding: 1rem;
   }
 }
+
+/* ============================================================ */
+/* ENTERPRISE SAAS & FINTECH BILLING STYLING TOKENS            */
+/* ============================================================ */
+
+/* Radar Pulse Live Status Indicator */
+.radar-pulse-dot {
+  position: relative;
+  display: inline-flex;
+  width: 10px;
+  height: 10px;
+}
+
+.radar-pulse-dot::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #10b981;
+  opacity: 0.75;
+  animation: radarPing 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.radar-pulse-dot::after {
+  content: '';
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
+@keyframes radarPing {
+  75%, 100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+/* Realistic Interactive Fintech Credit Card Graphic */
+.fintech-card-visual {
+  width: 100%;
+  max-width: 380px;
+  height: 215px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #0f172a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  color: #ffffff;
+  user-select: none;
+}
+
+.fintech-card-visual::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -30%;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.fintech-chip {
+  width: 44px;
+  height: 32px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #d4af37 0%, #fef08a 50%, #ca8a04 100%);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.fintech-chip::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Progress bar container */
+.quota-progress-track {
+  width: 100%;
+  height: 7px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.quota-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.5s ease;
+}
+
+/* Pricing Switcher Pill */
+.billing-switcher-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-secondary);
+  padding: 0.3rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border-color);
+}
+
+.billing-switcher-btn {
+  padding: 0.5rem 1.15rem;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.billing-switcher-btn.active {
+  background: #ffffff;
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] .billing-switcher-btn.active {
+  background: #1e293b;
+  color: #f8fafc;
+}
+

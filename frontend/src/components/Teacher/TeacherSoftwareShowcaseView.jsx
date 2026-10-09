@@ -27,8 +27,11 @@ import {
   Star,
   Check,
   ChevronRight,
-  HelpCircle
+  HelpCircle,
+  Eye
 } from 'lucide-react';
+import { DocumentViewerModal } from '../Common/DocumentViewerModal';
+import { OfficialTaxInvoiceModal } from '../Common/OfficialTaxInvoiceModal';
 
 export const TeacherSoftwareShowcaseView = ({ onUnlocked }) => {
   const { currentUser, updateUserProfile, licenses: authLicenses, fetchUsers } = useAuth();
@@ -47,6 +50,8 @@ export const TeacherSoftwareShowcaseView = ({ onUnlocked }) => {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isInstModalOpen, setIsInstModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('MONTHLY_PRO'); // 'MONTHLY_PRO' | 'ANNUAL_PRO'
+  const [activeDocPreview, setActiveDocPreview] = useState(null);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   // Option 1: Individual Payment Checkout State
   const [paymentMethod, setPaymentMethod] = useState('CARD'); // 'CARD' | 'UPI' | 'NETBANKING'
@@ -435,9 +440,43 @@ export const TeacherSoftwareShowcaseView = ({ onUnlocked }) => {
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.25rem' }}>
                 Submitted Proof Document
               </span>
-              <strong style={{ fontSize: '0.9rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                📄 {pendingDomainLicense?.proofDocumentName || applicationSubmitted?.fileName || 'Institutional_Proof.pdf'}
-              </strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <strong style={{ fontSize: '0.9rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  📄 {pendingDomainLicense?.proofDocumentName || applicationSubmitted?.fileName || 'Institutional_Proof.pdf'}
+                </strong>
+                <button
+                  type="button"
+                  onClick={() => setActiveDocPreview({
+                    fileUrl: pendingDomainLicense?.proofDocumentUrl || proofFileDataUrl || '',
+                    fileName: pendingDomainLicense?.proofDocumentName || applicationSubmitted?.fileName || 'Institutional_Proof.pdf',
+                    fileType: 'pdf',
+                    docData: {
+                      institutionName: pendingDomainLicense?.institutionName || applicationSubmitted?.instName || 'Campus',
+                      domainExtension: pendingDomainLicense?.domainExtension || applicationSubmitted?.domain || currentTeacherDomain,
+                      contactName: pendingDomainLicense?.contactName || applicationSubmitted?.contactName || currentUser?.name,
+                      contactEmail: pendingDomainLicense?.contactEmail || applicationSubmitted?.contactEmail || currentUser?.email,
+                      fileName: pendingDomainLicense?.proofDocumentName || applicationSubmitted?.fileName || 'Institutional_Proof.pdf',
+                      submittedAt: pendingDomainLicense?.createdAt ? new Date(pendingDomainLicense.createdAt).toLocaleString() : new Date().toLocaleString()
+                    }
+                  })}
+                  className="btn btn-sm btn-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    fontSize: '0.78rem',
+                    padding: '0.3rem 0.75rem',
+                    fontWeight: 800,
+                    color: 'var(--accent-blue)',
+                    borderColor: 'rgba(59, 130, 246, 0.4)',
+                    background: 'rgba(59, 130, 246, 0.08)',
+                    borderRadius: 'var(--radius-sm)'
+                  }}
+                  title="Click to view full uploaded proof document"
+                >
+                  <Eye size={13} /> View Uploaded Proof
+                </button>
+              </div>
             </div>
 
             <div>
@@ -877,9 +916,14 @@ export const TeacherSoftwareShowcaseView = ({ onUnlocked }) => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                <button onClick={() => window.print()} className="btn btn-secondary" style={{ gap: '0.4rem' }}>
-                  <Download size={14} /> Print Tax Invoice
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                <button 
+                  type="button"
+                  onClick={() => setIsInvoiceModalOpen(true)} 
+                  className="btn btn-secondary" 
+                  style={{ gap: '0.4rem', fontWeight: 800, color: 'var(--accent-blue)', borderColor: 'rgba(59, 130, 246, 0.4)' }}
+                >
+                  <Eye size={14} /> View Official GST Tax Invoice
                 </button>
                 <button onClick={() => { setIsCheckoutOpen(false); if (onUnlocked) onUnlocked(); }} className="btn btn-primary" style={{ fontWeight: 800 }}>
                   Launch Full Dashboard Now
@@ -1123,12 +1167,37 @@ export const TeacherSoftwareShowcaseView = ({ onUnlocked }) => {
                     style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
                   />
                   {proofFileName ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', color: 'var(--status-success)', fontWeight: 800 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', color: 'var(--status-success)', fontWeight: 800, flexWrap: 'wrap' }}>
                       <FileCheck size={32} color="var(--status-success)" />
                       <div style={{ textAlign: 'left' }}>
                         <span style={{ fontSize: '0.98rem', display: 'block' }}>✓ Document Proof Attached:</span>
                         <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{proofFileName}</strong>
                       </div>
+                      {proofFileDataUrl && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDocPreview({
+                              fileUrl: proofFileDataUrl,
+                              fileName: proofFileName,
+                              fileType: 'pdf',
+                              docData: {
+                                institutionName: instName || 'Campus',
+                                domainExtension: instDomainExt || currentTeacherDomain,
+                                contactName: contactName || currentUser?.name,
+                                contactEmail: contactEmail || currentUser?.email,
+                                fileName: proofFileName,
+                                submittedAt: new Date().toLocaleString()
+                              }
+                            });
+                          }}
+                          className="btn btn-sm btn-secondary"
+                          style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem', gap: '0.3rem', zIndex: 5 }}
+                        >
+                          <Eye size={12} /> Preview
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div>
@@ -1234,7 +1303,28 @@ export const TeacherSoftwareShowcaseView = ({ onUnlocked }) => {
   )
 }
 
-    </div >
+      {/* Proof Document Viewer Modal */}
+      {activeDocPreview && (
+        <DocumentViewerModal
+          fileUrl={activeDocPreview.fileUrl}
+          fileName={activeDocPreview.fileName}
+          fileType={activeDocPreview.fileType}
+          docData={activeDocPreview.docData || activeDocPreview}
+          isOpen={!!activeDocPreview}
+          onClose={() => setActiveDocPreview(null)}
+        />
+      )}
+
+      {/* Official GST Tax Invoice Modal */}
+      {completedInvoice && (
+        <OfficialTaxInvoiceModal
+          invoice={completedInvoice}
+          isOpen={isInvoiceModalOpen}
+          onClose={() => setIsInvoiceModalOpen(false)}
+        />
+      )}
+
+    </div>
   );
 };
 

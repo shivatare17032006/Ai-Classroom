@@ -72,6 +72,23 @@ public class Submission {
         this.isBelowThreshold = isBelowThreshold;
     }
 
+    @PrePersist
+    @PreUpdate
+    private void sanitizeDataForPostgreSql() {
+        this.content = cleanNullBytes(this.content);
+        this.fileName = cleanNullBytes(this.fileName);
+        this.fileUrl = cleanNullBytes(this.fileUrl);
+        this.fileType = cleanNullBytes(this.fileType);
+        this.studentName = cleanNullBytes(this.studentName);
+        this.aiFeedback = cleanNullBytes(this.aiFeedback);
+        this.teacherFeedback = cleanNullBytes(this.teacherFeedback);
+    }
+
+    private String cleanNullBytes(String val) {
+        if (val == null) return null;
+        return val.replace("\u0000", "").replace("\0", "");
+    }
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 

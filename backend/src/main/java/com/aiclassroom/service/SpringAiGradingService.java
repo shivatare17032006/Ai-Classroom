@@ -174,38 +174,45 @@ public class SpringAiGradingService {
     /**
      * Parses Spring AI model output text into structured GradingEvaluationResult.
      */
+    /**
+     * Parses Spring AI model output text into structured GradingEvaluationResult.
+     */
     public GradingEvaluationResult parseAiGradingResponse(String aiText, double maxMarks, Map<String, String> rubricMap) {
         double scoreRatio = 0.8; // Default 80%
         double relevanceScore = 80.0;
         boolean isOffTopic = false;
         String feedback = aiText;
 
-        if (aiText != null) {
-            String lower = aiText.toLowerCase();
-            if (lower.contains("rejected") || lower.contains("off-topic") || lower.contains("0.0/10") || lower.contains("0/10") || lower.contains("score: 0")) {
-                scoreRatio = 0.0;
-                isOffTopic = true;
-                relevanceScore = 0.0;
-            }
-        }
-
         try {
-            Matcher scoreMatcher = Pattern.compile("SCORE:\\s*([0-9.]+)\\s*/\\s*10", Pattern.CASE_INSENSITIVE).matcher(aiText);
+            Matcher scoreMatcher = Pattern.compile("SCORE:\\s*([0-9.]+)\\s*/\\s*10", Pattern.CASE_INSENSITIVE).matcher(aiText != null ? aiText : "");
             if (scoreMatcher.find()) {
                 double val = Double.parseDouble(scoreMatcher.group(1));
                 scoreRatio = Math.max(0.0, Math.min(1.0, val / 10.0));
+                if (val <= 0.0) {
+                    isOffTopic = true;
+                }
             }
 
-            Matcher relMatcher = Pattern.compile("RELEVANCE:\\s*([0-9.]+)\\s*%", Pattern.CASE_INSENSITIVE).matcher(aiText);
+            Matcher relMatcher = Pattern.compile("RELEVANCE:\\s*([0-9.]+)\\s*%", Pattern.CASE_INSENSITIVE).matcher(aiText != null ? aiText : "");
             if (relMatcher.find()) {
                 relevanceScore = Double.parseDouble(relMatcher.group(1));
-                if (relevanceScore < 25.0) {
+                if (relevanceScore < 20.0 && scoreRatio <= 0.0) {
                     isOffTopic = true;
-                    scoreRatio = 0.0;
+                } else if (scoreRatio > 0.0) {
+                    isOffTopic = false;
                 }
             }
         } catch (Exception e) {
             log.error("Error parsing Spring AI response metrics: {}", e.getMessage());
+        }
+
+        if (aiText != null) {
+            String lower = aiText.toLowerCase();
+            if (lower.contains("status: rejected") || lower.contains("topic mismatch") || lower.contains("off-topic submission")) {
+                if (scoreRatio <= 0.0) {
+                    isOffTopic = true;
+                }
+            }
         }
 
         double rawScore = Math.round(maxMarks * scoreRatio * 10.0) / 10.0;
@@ -256,6 +263,98 @@ public class SpringAiGradingService {
     }
 
     /**
+     * Checks if a term or short acronym is present in content using strict word boundaries for short tokens.
+     */
+    public static boolean containsWordOrPhrase(String content, String term) {
+        if (content == null || term == null || term.trim().isEmpty()) return false;
+        String t = term.trim().toLowerCase();
+        if (t.length() <= 3) {
+            return Pattern.compile("\\b" + Pattern.quote(t) + "\\b").matcher(content).find();
+        }
+        return content.contains(t);
+    }
+
+    /**
+     * Checks if the student submission contains recognizable source code constructs.
+     */
+    public static boolean isRecognizedCodeSubmission(String submission) {
+        if (submission == null) return false;
+        String s = submission.toLowerCase();
+        return s.contains("#include") || s.contains("stdio.h") || s.contains("iostream") || s.contains("conio.h") ||
+               s.contains("public class") || s.contains("public static void main") || s.contains("system.out") || s.contains("scanner") ||
+               s.contains("def ") || s.contains("import ") || s.contains("print(") || s.contains("__name__") ||
+               s.contains("function") || s.contains("const ") || s.contains("let ") || s.contains("console.log") ||
+               s.contains("select ") || s.contains("from ") || s.contains("where ") || s.contains("create table") ||
+               s.contains("struct ") || s.contains("int main") || s.contains("printf(") || s.contains("scanf(") ||
+               s.contains("malloc(") || s.contains("return ") || s.contains("for (") || s.contains("for(") ||
+               s.contains("while(") || s.contains("while (") || s.contains("if(") || s.contains("if (") ||
+               s.contains("<html") || s.contains("<div") || s.contains("<style");
+    }
+
+    /**
+     * Retrieves expanded concept terms / synonyms for common technical acronyms and domain topics.
+     */
+    public static Set<String> getExpandedConceptTerms(String promptText) {
+        Set<String> synonyms = new HashSet<>();
+        if (promptText == null) return synonyms;
+        String p = promptText.toLowerCase();
+
+        if (p.contains("fcfs") || p.contains("first come")) {
+            synonyms.addAll(Arrays.asList(
+                "fcfs", "first come", "first-come", "first served", "first-served", "cpu scheduling",
+                "scheduling", "burst", "arrival", "waiting", "turnaround", "tat", "wt", "bt", "at",
+                "ct", "gantt", "process", "ready queue", "completion"
+            ));
+        }
+        if (p.contains("sjf") || p.contains("shortest job")) {
+            synonyms.addAll(Arrays.asList(
+                "sjf", "shortest job", "shortest remaining", "srtf", "burst", "preemptive", "scheduling", "wt", "tat", "bt"
+            ));
+        }
+        if (p.contains("round robin") || p.contains("rr")) {
+            synonyms.addAll(Arrays.asList(
+                "round robin", "rr", "quantum", "time quantum", "preemptive", "slice", "scheduling", "queue"
+            ));
+        }
+        if (p.contains("priority")) {
+            synonyms.addAll(Arrays.asList(
+                "priority", "preemptive", "non-preemptive", "highest priority", "scheduling"
+            ));
+        }
+        if (p.contains("fifo")) {
+            synonyms.addAll(Arrays.asList(
+                "fifo", "first in first out", "queue", "enqueue", "dequeue", "page replacement"
+            ));
+        }
+        if (p.contains("lru")) {
+            synonyms.addAll(Arrays.asList(
+                "lru", "least recently used", "cache", "page fault", "hit", "miss", "frame"
+            ));
+        }
+        if (p.contains("sql") || p.contains("relational") || p.contains("database")) {
+            synonyms.addAll(Arrays.asList(
+                "sql", "select", "from", "where", "join", "insert", "create", "table", "update", "delete", "query", "database"
+            ));
+        }
+        if (p.contains("mongo") || p.contains("nosql")) {
+            synonyms.addAll(Arrays.asList(
+                "mongo", "mongodb", "nosql", "db.", "find", "aggregate", "collection", "document"
+            ));
+        }
+        if (p.contains("oop") || p.contains("object oriented") || p.contains("java") || p.contains("c++")) {
+            synonyms.addAll(Arrays.asList(
+                "oop", "object oriented", "class", "object", "inheritance", "polymorphism", "encapsulation", "method", "constructor"
+            ));
+        }
+        if (p.contains("bfs") || p.contains("dfs") || p.contains("tree") || p.contains("graph")) {
+            synonyms.addAll(Arrays.asList(
+                "bfs", "dfs", "breadth first", "depth first", "queue", "stack", "recursion", "graph", "tree", "visited"
+            ));
+        }
+        return synonyms;
+    }
+
+    /**
      * Smart semantic analysis engine powered by Spring AI logic for offline or API key fallback.
      */
     public GradingEvaluationResult performSpringAiFallbackEvaluation(
@@ -288,49 +387,50 @@ public class SpringAiGradingService {
 
         Set<String> stopWords = new HashSet<>(Arrays.asList(
             "the", "is", "at", "which", "on", "a", "an", "and", "or", "to", "in", "for", "of", "with", "by", "from",
-            "write", "submit", "assignment", "solution", "create", "please", "should", "have", "must", "using", "code",
-            "project", "system", "data", "app", "application", "process", "method", "function", "program",
-            "task", "file", "problem", "input", "output", "example", "value", "result", "implementation", "details",
-            "explain", "each", "them", "question", "cmds", "commands", "cmd", "topic"
+            "please", "should", "have", "must", "using"
         ));
-
-        // Required topic match check
-        boolean hasRequiredTopicMatch = true;
-        if (requiredTopic != null && !requiredTopic.trim().isEmpty() && !requiredTopic.equalsIgnoreCase("General")) {
-            String cleanTopic = requiredTopic.toLowerCase().replaceAll("[^a-z0-9\\s]", " ").trim();
-            String[] topicTokens = cleanTopic.split("\\s+");
-            hasRequiredTopicMatch = false;
-            for (String tt : topicTokens) {
-                if (tt.length() > 2 && !stopWords.contains(tt) && lowerSubmission.contains(tt)) {
-                    hasRequiredTopicMatch = true;
-                    break;
-                }
-            }
-        }
 
         String[] tokens = fullPromptText.replaceAll("[^a-z0-9\\s]", " ").split("\\s+");
         Set<String> keyTerms = new HashSet<>();
         for (String t : tokens) {
-            if (t.length() > 2 && !stopWords.contains(t)) {
+            if (t.length() >= 2 && !stopWords.contains(t)) {
                 keyTerms.add(t);
             }
         }
 
+        Set<String> expandedConceptTerms = getExpandedConceptTerms(fullPromptText);
+
         int matchCount = 0;
         for (String term : keyTerms) {
-            if (lowerSubmission.contains(term)) {
+            if (containsWordOrPhrase(lowerSubmission, term)) {
                 matchCount++;
             }
         }
 
-        double relevanceRatio = keyTerms.size() > 0 ? (double) matchCount / keyTerms.size() : 0.5;
+        int conceptMatchCount = 0;
+        for (String concept : expandedConceptTerms) {
+            if (containsWordOrPhrase(lowerSubmission, concept)) {
+                conceptMatchCount++;
+            }
+        }
+
+        boolean isCode = isRecognizedCodeSubmission(submission);
+
+        double baseRatio = keyTerms.size() > 0 ? (double) matchCount / keyTerms.size() : 0.5;
+        double conceptRatio = expandedConceptTerms.size() > 0 ? Math.min(1.0, (double) conceptMatchCount / 2.0) : 0.0;
+
+        double relevanceRatio = Math.max(baseRatio, conceptRatio);
+        if (isCode && (conceptMatchCount > 0 || matchCount > 0)) {
+            relevanceRatio = Math.max(relevanceRatio, 0.85);
+        }
+
         double relevancePercentage = Math.min(100.0, Math.round(relevanceRatio * 100.0 * 10.0) / 10.0);
 
         double scoreRatio;
         boolean isOffTopic = false;
         String feedbackText;
 
-        if (!hasRequiredTopicMatch || relevanceRatio < 0.20) {
+        if (relevanceRatio < 0.15 && !isCode && conceptMatchCount == 0) {
             scoreRatio = 0.0;
             isOffTopic = true;
             feedbackText = String.format(
@@ -338,30 +438,63 @@ public class SpringAiGradingService {
                 "SCORE: 0.0/10\n" +
                 "RELEVANCE: %.1f%%\n" +
                 "STATUS: REJECTED (Off-Topic Submission)\n" +
-                "FEEDBACK: The submitted document shares insufficient topic alignment (%.1f%% relevance) with the assignment prompt \"%s\". Assigned 0/10.\n" +
+                "FEEDBACK: Complete Topic Mismatch: The submitted content shares insufficient topic alignment (%.1f%% relevance) with the assignment prompt \"%s\". Assigned 0/10.\n" +
                 "AREAS_FOR_IMPROVEMENT: Ensure submission directly answers the required assignment prompt and problem specifications.",
                 relevancePercentage, relevancePercentage,
                 title != null ? title : "Assignment"
             );
         } else {
-            // Calculate proportional academic score ratio
-            if (relevanceRatio >= 0.70) {
-                scoreRatio = 0.85 + Math.min(0.15, (relevanceRatio - 0.70) * 0.5);
-            } else if (relevanceRatio >= 0.40) {
-                scoreRatio = 0.65 + (relevanceRatio - 0.40) * 0.66;
-            } else {
-                scoreRatio = 0.30 + (relevanceRatio - 0.20) * 1.75;
+            // Completeness & accuracy deductions for missing components
+            double completenessFactor = 1.0;
+            List<String> missingElements = new ArrayList<>();
+
+            boolean asksForCode = fullPromptText.contains("program") || fullPromptText.contains("code") || fullPromptText.contains("algo") || fullPromptText.contains("implement");
+            if (asksForCode && !isCode) {
+                completenessFactor -= 0.35;
+                missingElements.add("Executable source code");
             }
+
+            if (fullPromptText.contains("fcfs") || fullPromptText.contains("scheduling") || fullPromptText.contains("sjf") || fullPromptText.contains("rr")) {
+                boolean hasWaiting = lowerSubmission.contains("wt") || lowerSubmission.contains("waiting") || lowerSubmission.contains("wait");
+                boolean hasTurnaround = lowerSubmission.contains("tat") || lowerSubmission.contains("turnaround") || lowerSubmission.contains("turn_around") || lowerSubmission.contains("completion");
+                boolean hasBurst = lowerSubmission.contains("bt") || lowerSubmission.contains("burst") || lowerSubmission.contains("burst_time") || lowerSubmission.contains("time");
+                boolean hasLoop = lowerSubmission.contains("for") || lowerSubmission.contains("while") || lowerSubmission.contains("loop") || lowerSubmission.contains("schedule");
+
+                if (!hasWaiting) { completenessFactor -= 0.10; missingElements.add("Waiting time calculation (WT)"); }
+                if (!hasTurnaround) { completenessFactor -= 0.10; missingElements.add("Turnaround time calculation (TAT)"); }
+                if (!hasBurst) { completenessFactor -= 0.05; missingElements.add("Burst time handling"); }
+                if (!hasLoop) { completenessFactor -= 0.10; missingElements.add("Scheduling loop execution"); }
+            }
+
+            if (submission.trim().length() < 70) {
+                completenessFactor -= 0.15;
+                missingElements.add("Sufficient implementation detail");
+            }
+
+            completenessFactor = Math.max(0.20, Math.min(1.0, completenessFactor));
+
+            if (relevanceRatio >= 0.70 || (isCode && conceptMatchCount > 0)) {
+                scoreRatio = (0.85 + Math.min(0.15, (relevanceRatio - 0.70) * 0.5)) * completenessFactor;
+            } else if (relevanceRatio >= 0.40) {
+                scoreRatio = (0.65 + (relevanceRatio - 0.40) * 0.66) * completenessFactor;
+            } else {
+                scoreRatio = (0.40 + (relevanceRatio - 0.15) * 1.0) * completenessFactor;
+            }
+            scoreRatio = Math.min(1.0, Math.max(0.0, scoreRatio));
+
+            String areasToImprove = missingElements.isEmpty()
+                ? "Ensure clean inline comments and handle boundary condition checks."
+                : "Submission has missing components: " + String.join(", ", missingElements) + ". Marks deducted accordingly.";
 
             feedbackText = String.format(
                 "SPRING AI EVALUATION RESULT:\n" +
                 "SCORE: %.1f/10\n" +
                 "RELEVANCE: %.1f%%\n" +
                 "STATUS: ACADEMIC EVALUATION COMPLETED\n" +
-                "FEEDBACK: Student submission evaluated against assignment instructions (%.1f%% prompt keyword alignment).\n" +
-                "STRENGTHS: Relevant concepts present in submission.\n" +
-                "AREAS_FOR_IMPROVEMENT: Provide detailed step-by-step explanations and verify exact syntax.",
-                scoreRatio * 10.0, relevancePercentage, relevancePercentage
+                "FEEDBACK: Student submission evaluated against assignment instructions (%.1f%% prompt concept alignment).\n" +
+                "STRENGTHS: Relevant concepts and technical logic identified in submission.\n" +
+                "AREAS_FOR_IMPROVEMENT: %s",
+                scoreRatio * 10.0, relevancePercentage, relevancePercentage, areasToImprove
             );
         }
 

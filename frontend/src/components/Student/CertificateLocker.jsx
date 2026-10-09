@@ -31,7 +31,18 @@ export const CertificateLocker = ({ classroom }) => {
 
   const fileInputRef = useRef(null);
 
-  const myCertificates = (certificates || []).filter(c => c?.studentId === currentUser?.id);
+  const myCertificates = (certificates || []).filter(c => {
+    if (!c) return false;
+    const curId = (currentUser?.id || '').toString().toLowerCase();
+    const curEmail = (currentUser?.email || '').toString().toLowerCase();
+    const cId = (c.studentId || '').toString().toLowerCase();
+    const cEmail = (c.studentEmail || '').toString().toLowerCase();
+
+    return (curId && cId === curId) || 
+           (curEmail && cEmail === curEmail) || 
+           (curEmail && cId === curEmail) || 
+           (curId && cEmail === curId);
+  });
 
   const filteredCertificates = myCertificates.filter(c => {
     const matchesCat = selectedCategory === 'ALL' || c.category === selectedCategory;
@@ -60,14 +71,15 @@ export const CertificateLocker = ({ classroom }) => {
     }
   };
 
-  const handleUpload = (e) => {
+  const handleUpload = async (e) => {
     e.preventDefault();
     if (!title || !issuer) return;
 
     const finalUrl = fileUrl || credentialUrl || 'https://example.com/credential-preview';
 
-    uploadCertificate({
+    await uploadCertificate({
       studentId: currentUser?.id,
+      studentEmail: currentUser?.email,
       studentName: currentUser?.name || 'Student',
       title,
       category,
