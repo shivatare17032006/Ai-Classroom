@@ -15,10 +15,12 @@ async function postEmailRequest(endpoint, payload) {
       console.log(`[EmailService Frontend] Dispatched to ${endpoint}:`, data);
       return data;
     }
+    const errorText = await res.text();
+    throw new Error(errorText || `Email request failed with status ${res.status}`);
   } catch (err) {
-    console.warn(`[EmailService Frontend] Backend email trigger for ${endpoint} offline/fallback:`, err.message);
+    console.error(`[EmailService Frontend] Backend email trigger for ${endpoint} failed:`, err.message);
+    throw err;
   }
-  return { success: true, simulated: true };
 }
 
 export const EmailNotificationService = {

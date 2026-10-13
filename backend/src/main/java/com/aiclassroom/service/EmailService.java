@@ -38,22 +38,25 @@ public class EmailService {
         log.info(htmlContent.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim());
         log.info("================================================================================");
 
-        if (mailSender != null) {
-            try {
-                MimeMessage message = mailSender.createMimeMessage();
-                MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-                helper.setFrom(fromEmail);
-                helper.setTo(toEmail);
-                helper.setSubject(subject);
-                helper.setText(htmlContent, true);
-                mailSender.send(message);
-                log.info("[EmailService] SMTP Email successfully delivered to {}", toEmail);
-                return true;
-            } catch (Exception e) {
-                log.error("[EmailService] SMTP delivery failed for {}: {}. Logged in system memory.", toEmail, e.getMessage());
-            }
+        if (mailSender == null) {
+            log.error("[EmailService] SMTP is not configured. JavaMailSender is unavailable.");
+            throw new IllegalStateException("Email delivery is not configured.");
         }
-        return true; // Returns true for dev/local simulation
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            log.info("[EmailService] SMTP Email successfully delivered to {}", toEmail);
+            return true;
+        } catch (Exception e) {
+            log.error("[EmailService] SMTP delivery failed for {}: {}", toEmail, e.getMessage(), e);
+            throw new IllegalStateException("Email delivery failed.", e);
+        }
     }
 
     /**
