@@ -254,22 +254,30 @@ export const LoginPage = () => {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'radial-gradient(circle at 50% 10%, rgba(99, 102, 241, 0.15) 0%, transparent 50%), radial-gradient(circle at 90% 90%, rgba(56, 189, 248, 0.12) 0%, transparent 50%), var(--bg-primary)',
-      padding: '2rem'
-    }}>
-      <div className="glass-card" style={{
+    <div 
+      className="auth-page-shell"
+      style={{
+        minHeight: '100vh',
         width: '100%',
-        maxWidth: '480px',
-        padding: '2.5rem',
-        border: '1px solid var(--border-color)',
-        boxShadow: 'var(--shadow-md)',
-        borderRadius: 'var(--radius-xl)'
-      }}>
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem 1rem',
+        boxSizing: 'border-box'
+      }}
+    >
+      <div 
+        className="glass-card" 
+        style={{
+          width: '100%',
+          maxWidth: '480px',
+          margin: '0 auto',
+          padding: '2.5rem',
+          border: '1px solid var(--border-color)',
+          boxShadow: 'var(--shadow-md)',
+          borderRadius: 'var(--radius-xl)'
+        }}
+      >
         {/* Brand Header */}
         <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
           <div style={{
@@ -658,8 +666,16 @@ export const LoginPage = () => {
           </form>
         )}
 
-        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-          Protected by Enterprise Authentication Protocol
+        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <span>Protected by Enterprise Authentication Protocol</span>
+          <span>•</span>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('aicl:open-cookie-modal'))}
+            style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, padding: 0, textDecoration: 'underline' }}
+          >
+            Cookie Preferences
+          </button>
         </div>
       </div>
 

@@ -12,6 +12,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary';
 import { getFileType } from '../../utils/fileExtractor';
 import { exportParentEmailRosterTemplateCSV, parseParentEmailCSV } from '../../utils/csvExporter';
 import { EmailNotificationService } from '../../services/emailService';
+import { getClassroomColor } from '../../utils/classroomTheme';
 import { 
   BookOpen, 
   MessageSquare, 
@@ -62,6 +63,7 @@ export const ClassroomDetailView = ({ classroom, onBack, onNavigateBilling }) =>
   const classAssignments = assignments.filter(a => a.classroomId === classroom?.id);
   const enrolledStudents = (users || []).filter(u => u.role === 'STUDENT' && Array.isArray(classroom?.studentIds) && classroom.studentIds.includes(u.id));
   const classAnnouncements = (announcements || []).filter(a => a.classroomId === classroom?.id);
+  const classroomColor = getClassroomColor(classroom);
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(classroom?.code || '');
@@ -197,8 +199,9 @@ export const ClassroomDetailView = ({ classroom, onBack, onNavigateBilling }) =>
       </div>
 
       {/* Google Classroom Hero Header Card */}
-      <div className="glass-card" style={{
-        background: 'linear-gradient(135deg, #1e3a8a 0%, #4f46e5 100%)',
+      <div className="glass-card classroom-hero" style={{
+        background: classroomColor,
+        '--classroom-color': classroomColor,
         color: '#ffffff',
         padding: '2rem',
         borderRadius: 'var(--radius-xl)',
@@ -216,7 +219,7 @@ export const ClassroomDetailView = ({ classroom, onBack, onNavigateBilling }) =>
           </div>
 
           {/* Class Code Widget */}
-          <div style={{
+          <div className="classroom-code" style={{
             background: 'rgba(0, 0, 0, 0.4)',
             backdropFilter: 'blur(10px)',
             padding: '0.75rem 1.25rem',
@@ -246,7 +249,7 @@ export const ClassroomDetailView = ({ classroom, onBack, onNavigateBilling }) =>
         </div>
 
         {/* 5 Google Classroom Navigation Tabs */}
-        <div style={{
+        <div className="classroom-tabs" style={{
           display: 'flex',
           gap: '0.5rem',
           marginTop: '1.75rem',
@@ -254,7 +257,7 @@ export const ClassroomDetailView = ({ classroom, onBack, onNavigateBilling }) =>
           paddingTop: '1rem',
           flexWrap: 'wrap'
         }}>
-          <button 
+          <button className={`classroom-tab ${activeTab === 'stream' ? 'active' : ''}`}
             onClick={() => setActiveTab('stream')}
             style={{
               background: activeTab === 'stream' ? '#ffffff' : 'transparent',
@@ -273,7 +276,7 @@ export const ClassroomDetailView = ({ classroom, onBack, onNavigateBilling }) =>
             <MessageSquare size={16} /> Stream
           </button>
 
-          <button 
+          <button className={`classroom-tab ${activeTab === 'classwork' ? 'active' : ''}`}
             onClick={() => setActiveTab('classwork')}
             style={{
               background: activeTab === 'classwork' ? '#ffffff' : 'transparent',
@@ -292,7 +295,7 @@ export const ClassroomDetailView = ({ classroom, onBack, onNavigateBilling }) =>
             <FileText size={16} /> Classwork & Assignments
           </button>
 
-          <button 
+          <button className={`classroom-tab ${activeTab === 'people' ? 'active' : ''}`}
             onClick={() => setActiveTab('people')}
             style={{
               background: activeTab === 'people' ? '#ffffff' : 'transparent',
@@ -311,7 +314,7 @@ export const ClassroomDetailView = ({ classroom, onBack, onNavigateBilling }) =>
             <Users size={16} /> People ({enrolledStudents.length})
           </button>
 
-          <button 
+          <button className={`classroom-tab ${activeTab === 'certificates' ? 'active' : ''}`}
             onClick={() => setActiveTab('certificates')}
             style={{
               background: activeTab === 'certificates' ? '#ffffff' : 'transparent',
@@ -331,7 +334,7 @@ export const ClassroomDetailView = ({ classroom, onBack, onNavigateBilling }) =>
           </button>
 
           {currentUser?.role === 'TEACHER' && (
-            <button 
+            <button className={`classroom-tab ${activeTab === 'analytics' ? 'active' : ''}`}
               onClick={() => setActiveTab('analytics')}
               style={{
                 background: activeTab === 'analytics' ? '#ffffff' : 'transparent',

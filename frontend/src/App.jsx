@@ -15,6 +15,7 @@ import { StudentTodoView } from './components/Student/StudentTodoView';
 import { TeacherReviewView } from './components/Teacher/TeacherReviewView';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { InstitutionalBenefitModal } from './components/Common/InstitutionalBenefitModal';
+import { CookieConsentModal } from './components/Common/CookieConsentModal';
 
 const MainLayout = () => {
   const { currentUser, loading, isProUser, getUnclaimedInstitutionalLicense, claimInstitutionalBenefit } = useAuth();
@@ -54,8 +55,8 @@ const MainLayout = () => {
         }}>
           <Sparkles color="#ffffff" size={36} />
         </div>
-        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#162033' }}>Loading AI Enabled Classroom...</h3>
-        <p style={{ fontSize: '0.85rem', color: '#52627a' }}>Preparing your academic workspace</p>
+        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>Loading your classroom...</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Preparing your workspace</p>
       </div>
     );
   }
@@ -140,6 +141,7 @@ export function App() {
     <AuthProvider>
       <ClassroomProvider>
         <MainLayout />
+        <CookieConsentModal />
       </ClassroomProvider>
     </AuthProvider>
   );

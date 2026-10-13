@@ -15,7 +15,7 @@ export const JoinClassroomModal = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
@@ -27,7 +27,7 @@ export const JoinClassroomModal = ({ isOpen, onClose }) => {
       updateUserProfile({ rollNo: rollNo.trim(), prnNo: prnNo.trim() });
     }
 
-    const res = joinClassroom(code, currentUser.id);
+    const res = await joinClassroom(code, currentUser.id);
     if (!res.success) {
       setError(res.error);
     } else {

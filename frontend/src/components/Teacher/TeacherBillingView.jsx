@@ -284,7 +284,7 @@ export const TeacherBillingView = () => {
   const checkoutTotalDue = Math.round((taxableSubtotal + checkoutCgst + checkoutSgst) * 100) / 100;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1380px', margin: '0 auto' }}>
+    <div className="billing-page" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1380px', margin: '0 auto' }}>
 
       {/* Breadcrumbs & Enterprise Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
@@ -295,15 +295,15 @@ export const TeacherBillingView = () => {
             <span style={{ color: 'var(--accent-blue)', fontWeight: 700 }}>Billing, Quotas & Invoicing</span>
           </div>
           <h1 style={{ fontSize: '1.85rem', fontWeight: 900, margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            Subscription & Licensing Management
+            Billing and plans
           </h1>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
-            Manage your educator tier, monitor AI grading quota consumption, view GST tax invoices, and configure institutional access.
+            Manage your plan, payment details, invoices, and institution access.
           </p>
         </div>
 
         {/* Live Active Status Pill */}
-        <div style={{
+        <div className="billing-status" style={{
           background: 'var(--bg-secondary)',
           border: '1px solid var(--border-color)',
           borderRadius: '14px',
@@ -316,7 +316,7 @@ export const TeacherBillingView = () => {
           <span className="radar-pulse-dot" />
           <div>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', display: 'block' }}>
-              Subscription Tier
+              Current plan
             </span>
             <strong style={{ fontSize: '0.95rem', color: isPro || activeDomainLicense ? 'var(--status-success)' : pendingDomainLicense ? 'var(--status-warning)' : 'var(--text-primary)' }}>
               {activeDomainLicense 
@@ -545,10 +545,10 @@ export const TeacherBillingView = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
           <div>
             <h3 style={{ fontSize: '1.35rem', fontWeight: 900, margin: 0 }}>
-              Transparent Academic SaaS Pricing
+              Choose a plan
             </h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
-              Choose individual faculty empowerment or institution-wide campus licensing with official GST invoices.
+              All plans include an official GST invoice. You can change or cancel your plan at any time.
             </p>
           </div>
 
@@ -578,7 +578,7 @@ export const TeacherBillingView = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '1.75rem' }}>
 
           {/* TIER 2: Pro Educator (Recommended) */}
-          <div className="glass-card" style={{ 
+          <div className="glass-card plan-card featured" style={{ 
             display: 'flex', 
             flexDirection: 'column', 
             justifyContent: 'space-between', 
@@ -589,8 +589,8 @@ export const TeacherBillingView = () => {
             position: 'relative',
             boxShadow: '0 12px 30px -10px rgba(99, 102, 241, 0.3)'
           }}>
-            <div style={{ position: 'absolute', top: '-12px', right: '20px', background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', fontSize: '0.68rem', fontWeight: 900, padding: '0.25rem 0.8rem', borderRadius: '20px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-              ⚡ MOST POPULAR / RECOMMENDED
+            <div className="plan-ribbon" style={{ position: 'absolute', top: '-12px', right: '20px', background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', fontSize: '0.68rem', fontWeight: 900, padding: '0.25rem 0.8rem', borderRadius: '20px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              Recommended
             </div>
 
             <div>
@@ -613,7 +613,7 @@ export const TeacherBillingView = () => {
 
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1.5rem 0', display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.84rem' }}>
                 <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}>
-                  <CheckCircle2 size={16} color="var(--accent-indigo)" /> 100% Instant Auto-Approval on Checkout
+                  <CheckCircle2 size={16} color="var(--accent-indigo)" /> Starts immediately after payment
                 </li>
                 <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <CheckCircle2 size={16} color="var(--accent-indigo)" /> Unlimited Spring AI Rubric Evaluations
@@ -642,7 +642,7 @@ export const TeacherBillingView = () => {
               <button 
                 onClick={() => handleOpenCheckout(billingCycle === 'ANNUAL' ? 'ANNUAL_PRO' : 'MONTHLY_PRO')}
                 className="btn btn-primary" 
-                style={{ width: '100%', gap: '0.5rem', fontWeight: 900, background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
+                style={{ width: '100%', gap: '0.5rem', fontWeight: 900 }}
               >
                 <Zap size={16} /> Upgrade to Pro ({billingCycle === 'ANNUAL' ? '₹4,999/yr' : '₹499/mo'})
               </button>
@@ -650,7 +650,7 @@ export const TeacherBillingView = () => {
           </div>
 
           {/* TIER 3: Institutional Campus License (B2B Enterprise) */}
-          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.75rem', borderRadius: '16px', border: '1px solid var(--accent-blue)', background: 'linear-gradient(180deg, rgba(56, 189, 248, 0.05) 0%, transparent 100%)' }}>
+          <div className="glass-card plan-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.75rem', borderRadius: '16px', border: '1px solid var(--accent-blue)', background: 'linear-gradient(180deg, rgba(56, 189, 248, 0.05) 0%, transparent 100%)' }}>
             <div>
               <span className="badge badge-info" style={{ marginBottom: '0.75rem', fontWeight: 800 }}>
                 <Building2 size={12} /> B2B ENTERPRISE
@@ -818,7 +818,7 @@ export const TeacherBillingView = () => {
             }}
           >
             {/* Modal Header */}
-            <div style={{
+            <div className="checkout-header" style={{
               background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
               padding: '1.25rem 1.75rem',
               color: '#ffffff',
@@ -1055,7 +1055,7 @@ export const TeacherBillingView = () => {
               </div>
 
               {/* Right Column: Order Summary, Coupon, & Tax Calculation */}
-              <div style={{ padding: '1.75rem', background: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div className="checkout-summary" style={{ padding: '1.75rem', background: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
                   <h4 style={{ fontSize: '1.1rem', fontWeight: 900, marginBottom: '1rem', color: 'var(--text-primary)' }}>
                     Itemized Order Summary

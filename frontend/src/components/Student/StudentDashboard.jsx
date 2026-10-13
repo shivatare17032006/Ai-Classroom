@@ -54,7 +54,10 @@ export const StudentDashboard = () => {
     ? safeAssignments.filter(a => a?.classroomId === activeClassroom?.id)
     : safeAssignments.filter(a => enrolledClassroomIds.length === 0 || enrolledClassroomIds.includes(a?.classroomId));
 
-  const studentNotifs = safeNotifications.filter(n => n?.studentId === studentId);
+  const studentNotifs = safeNotifications.filter(n => 
+    n && n.recipientRole !== 'PARENT' && 
+    (n.studentId === studentId || n.recipientId === studentId || (currentUser?.email && n.recipientEmail && n.recipientEmail.toLowerCase() === currentUser.email.toLowerCase()))
+  );
 
   // Computed metrics for Student Analytics Header
   const totalSubmitted = classAssignments.filter(a => safeSubmissions.some(s => s.assignmentId === a.id && s.studentId === studentId)).length;

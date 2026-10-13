@@ -4,7 +4,7 @@ import { useClassroom } from '../../context/ClassroomContext';
 import { UserAvatar } from '../Common/UserAvatar';
 import ProUpgradeModal from '../Common/ProUpgradeModal';
 import { 
-  Sparkles, 
+  Sparkles,
   Bell, 
   Moon, 
   Sun, 
@@ -13,7 +13,8 @@ import {
   ShieldAlert,
   ChevronDown,
   Zap,
-  Crown
+  Crown,
+  Cookie
 } from 'lucide-react';
 
 export const Navbar = ({ onNavigateBilling }) => {
@@ -42,17 +43,41 @@ export const Navbar = ({ onNavigateBilling }) => {
     return false;
   });
 
-  // Filter notifications based on role (Admin doesn't receive student threshold alerts)
+  // Filter notifications strictly for the individual logged-in user
+  const userEmail = (currentUser?.email || '').trim().toLowerCase();
+  const userId = currentUser?.id;
+  const userRole = currentUser?.role;
+
   const userNotifs = (notifications || []).filter(n => {
     if (!n) return false;
-    if (currentUser?.role === 'ADMIN') return false; // Admin manages platform, not classroom alerts
-    if (currentUser?.role === 'TEACHER') {
-      return n.recipientId === currentUser?.id || !n.recipientId;
+
+    // Never show guardian/parent alerts on teacher or student in-app notification bell
+    if (n.recipientRole === 'PARENT') return false;
+
+    if (userRole === 'ADMIN') {
+      return n.recipientRole === 'ADMIN';
     }
-    if (currentUser?.role === 'STUDENT') {
-      if (n.type === 'LOW_SCORE_FLAG') return false;
-      return n.recipientId === currentUser?.id;
+
+    if (userRole === 'TEACHER') {
+      // Must be intended for this specific teacher
+      if (n.recipientRole && n.recipientRole !== 'TEACHER') return false;
+
+      const idMatch = userId && n.recipientId && n.recipientId === userId;
+      const emailMatch = userEmail && n.recipientEmail && n.recipientEmail.trim().toLowerCase() === userEmail;
+
+      return Boolean(idMatch || emailMatch);
     }
+
+    if (userRole === 'STUDENT') {
+      if (n.recipientRole && n.recipientRole !== 'STUDENT') return false;
+
+      const idMatch = userId && n.recipientId && n.recipientId === userId;
+      const emailMatch = userEmail && n.recipientEmail && n.recipientEmail.trim().toLowerCase() === userEmail;
+      const studentMatch = userId && n.studentId && n.studentId === userId;
+
+      return Boolean(idMatch || emailMatch || studentMatch);
+    }
+
     return false;
   });
 
@@ -74,20 +99,20 @@ export const Navbar = ({ onNavigateBilling }) => {
       {/* Brand Title */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <div style={{
-          background: 'linear-gradient(135deg, #163a5f 0%, #1d4ed8 100%)',
+          background: 'var(--accent-blue)',
           padding: '0.6rem',
           borderRadius: 'var(--radius-md)',
           display: 'flex',
-          boxShadow: '0 10px 24px rgba(22,58,95,0.14)'
+          boxShadow: '0 3px 8px rgba(36,91,115,0.18)'
         }}>
           <Sparkles color="#ffffff" size={22} />
         </div>
         <div>
-          <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#162033', letterSpacing: '0.02em' }}>
-            AI ENABLED CLASSROOM
+          <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '0.01em' }}>
+            CLASSROOM HUB
           </h1>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-            Academic Management & Evaluation Portal
+            Teaching and learning workspace
           </span>
         </div>
       </div>
@@ -243,36 +268,70 @@ export const Navbar = ({ onNavigateBilling }) => {
               position: 'absolute',
               right: 0,
               top: '48px',
-              width: '360px',
-              maxHeight: '400px',
+              width: '380px',
+              maxHeight: '440px',
               overflowY: 'auto',
               zIndex: 200,
-              padding: '1rem'
+              padding: '1rem',
+              boxShadow: '0 12px 35px rgba(0, 0, 0, 0.25)',
+              borderRadius: 'var(--radius-lg)'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Notifications</h4>
-                <span className="badge badge-info">{userNotifs.length} Total</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', paddingBottom: '0.6rem', borderBottom: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Bell size={16} color="var(--accent-blue)" />
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0 }}>Notifications</h4>
+                </div>
+                <span className="badge badge-info" style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem' }}>
+                  {userNotifs.length} {userNotifs.length === 1 ? 'Alert' : 'Alerts'}
+                </span>
               </div>
+
               {userNotifs.length === 0 ? (
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>
-                  No notifications.
-                </p>
-              ) : (
-                userNotifs.slice(0, 5).map(n => (
-                  <div key={n.id} style={{
-                    padding: '0.75rem',
-                    borderRadius: 'var(--radius-sm)',
-                    background: n.type === 'LOW_SCORE_FLAG' ? 'var(--status-danger-bg)' : 'var(--bg-secondary)',
-                    marginBottom: '0.5rem',
-                    border: '1px solid var(--border-color)'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.25rem' }}>
-                      <ShieldAlert size={14} color={n.type === 'LOW_SCORE_FLAG' ? '#ef4444' : '#38bdf8'} />
-                      <strong style={{ fontSize: '0.8rem' }}>{n.title}</strong>
-                    </div>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.3' }}>{n.message}</p>
+                <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem', border: '1px solid var(--border-color)' }}>
+                    <Bell size={20} color="var(--text-muted)" style={{ opacity: 0.6 }} />
                   </div>
-                ))
+                  <strong style={{ display: 'block', fontSize: '0.88rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                    You're all caught up!
+                  </strong>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: '1.4' }}>
+                    No notifications for your account. Alerts for your submissions and courses will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {userNotifs.slice(0, 8).map(n => (
+                    <div key={n.id} style={{
+                      padding: '0.75rem 0.85rem',
+                      borderRadius: 'var(--radius-md)',
+                      background: n.type === 'LOW_SCORE_FLAG' 
+                        ? 'rgba(239, 68, 68, 0.08)' 
+                        : n.type === 'PLAGIARISM_ALERT'
+                        ? 'rgba(245, 158, 11, 0.08)'
+                        : 'var(--bg-secondary)',
+                      border: n.type === 'LOW_SCORE_FLAG'
+                        ? '1px solid rgba(239, 68, 68, 0.25)'
+                        : n.type === 'PLAGIARISM_ALERT'
+                        ? '1px solid rgba(245, 158, 11, 0.25)'
+                        : '1px solid var(--border-color)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                          <ShieldAlert size={14} color={n.type === 'LOW_SCORE_FLAG' ? '#ef4444' : n.type === 'PLAGIARISM_ALERT' ? '#f59e0b' : '#38bdf8'} />
+                          <strong style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>{n.title}</strong>
+                        </div>
+                        {n.createdAt && (
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                            {new Date(n.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
+                      <p style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: '1.4', margin: 0 }}>
+                        {n.message}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -354,6 +413,18 @@ export const Navbar = ({ onNavigateBilling }) => {
                   <strong style={{ color: 'var(--status-success)' }}>Student Access Provided</strong>
                 </div>
               )}
+
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowUserMenu(false);
+                  window.dispatchEvent(new CustomEvent('aicl:open-cookie-modal'));
+                }}
+                className="btn btn-sm btn-secondary"
+                style={{ width: '100%', justifyContent: 'center', gap: '0.45rem', marginBottom: '0.5rem', fontSize: '0.75rem' }}
+              >
+                <Cookie size={14} /> Cookie & Privacy Settings
+              </button>
 
               <button 
                 onClick={logout}

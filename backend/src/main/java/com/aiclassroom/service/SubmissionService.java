@@ -4,6 +4,7 @@ import com.aiclassroom.dto.ReviewGradeRequest;
 import com.aiclassroom.dto.SubmissionRequest;
 import com.aiclassroom.model.*;
 import com.aiclassroom.repository.AssignmentRepository;
+import com.aiclassroom.repository.ClassroomRepository;
 import com.aiclassroom.repository.SubmissionRepository;
 import com.aiclassroom.repository.UserRepository;
 import org.slf4j.Logger;
@@ -20,15 +21,17 @@ public class SubmissionService {
     private final SubmissionRepository submissionRepository;
     private final AssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
+    private final ClassroomRepository classroomRepository;
     private final NotificationService notificationService;
     private final GeminiService geminiService;
     private final SpringAiGradingService springAiGradingService;
     private final PlagiarismService plagiarismService;
 
-    public SubmissionService(SubmissionRepository submissionRepository, AssignmentRepository assignmentRepository, UserRepository userRepository, NotificationService notificationService, GeminiService geminiService, SpringAiGradingService springAiGradingService, PlagiarismService plagiarismService) {
+    public SubmissionService(SubmissionRepository submissionRepository, AssignmentRepository assignmentRepository, UserRepository userRepository, ClassroomRepository classroomRepository, NotificationService notificationService, GeminiService geminiService, SpringAiGradingService springAiGradingService, PlagiarismService plagiarismService) {
         this.submissionRepository = submissionRepository;
         this.assignmentRepository = assignmentRepository;
         this.userRepository = userRepository;
+        this.classroomRepository = classroomRepository;
         this.notificationService = notificationService;
         this.geminiService = geminiService;
         this.springAiGradingService = springAiGradingService;
@@ -186,10 +189,29 @@ public class SubmissionService {
             log.warn("🚨 [PLAGIARISM ALERT] SubmissionId='{}' flagged for high similarity ({}% > {}%). Auto-dispatching alert to instructor.",
                     submissionId, similarityScore, similarityThreshold);
 
-            // Dispatch notification to teacher
+            // Dynamically resolve course teacher for this assignment
+            String teacherId = null;
+            String teacherEmail = null;
+            String classroomId = assignment != null ? assignment.getClassroomId() : null;
+            if (classroomId != null) {
+                Optional<Classroom> classroomOpt = classroomRepository.findById(classroomId);
+                if (classroomOpt.isPresent()) {
+                    teacherId = classroomOpt.get().getTeacherId();
+                    if (teacherId != null) {
+                        Optional<User> teacherOpt = userRepository.findById(teacherId);
+                        if (teacherOpt.isPresent()) {
+                            teacherEmail = teacherOpt.get().getEmail();
+                        }
+                    }
+                }
+            }
+
+            // Dispatch notification strictly to the course teacher
             notificationService.sendNotification(Notification.builder()
-                    .recipientEmail("sarah.jenkins@university.edu")
+                    .recipientId(teacherId)
+                    .recipientEmail(teacherEmail)
                     .recipientRole("TEACHER")
+                    .classroomId(classroomId)
                     .studentId(req.getStudentId())
                     .studentName(req.getStudentName())
                     .type("PLAGIARISM_ALERT")
@@ -236,23 +258,42 @@ public class SubmissionService {
 
             String alertMsg = "Alert: " + sub.getStudentName() + " scored " + finalScore + "/" + maxMarks + " in \"" + assignmentTitle + "\", which is below the minimum passing threshold (" + minThreshold + "/" + maxMarks + ").";
 
-            // 1. Parent Notification (Automated Mail)
+            String classroomId = assignment != null ? assignment.getClassroomId() : null;
+            String teacherId = null;
+            String teacherEmail = null;
+            if (classroomId != null) {
+                Optional<Classroom> classroomOpt = classroomRepository.findById(classroomId);
+                if (classroomOpt.isPresent()) {
+                    teacherId = classroomOpt.get().getTeacherId();
+                    if (teacherId != null) {
+                        Optional<User> teacherOpt = userRepository.findById(teacherId);
+                        if (teacherOpt.isPresent()) {
+                            teacherEmail = teacherOpt.get().getEmail();
+                        }
+                    }
+                }
+            }
+
+            // 1. Parent Notification (For guardian only - marked as PARENT role)
             if (student != null && student.getParentEmail() != null && !student.getParentEmail().isEmpty()) {
                 notificationService.sendNotification(Notification.builder()
                         .recipientEmail(student.getParentEmail())
                         .recipientRole("PARENT")
                         .studentId(sub.getStudentId())
                         .studentName(sub.getStudentName())
+                        .classroomId(classroomId)
                         .type("LOW_SCORE_FLAG")
                         .title("Parent Notification: Academic Alert")
                         .message(alertMsg)
                         .build());
             }
 
-            // 2. Teacher Notification
+            // 2. Teacher Notification (Targeted to the course teacher only)
             notificationService.sendNotification(Notification.builder()
-                    .recipientEmail("sarah.jenkins@university.edu")
+                    .recipientId(teacherId)
+                    .recipientEmail(teacherEmail)
                     .recipientRole("TEACHER")
+                    .classroomId(classroomId)
                     .studentId(sub.getStudentId())
                     .studentName(sub.getStudentName())
                     .type("LOW_SCORE_FLAG")

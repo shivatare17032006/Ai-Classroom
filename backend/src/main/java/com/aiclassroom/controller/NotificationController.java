@@ -19,14 +19,23 @@ public class NotificationController {
     @GetMapping
     public ResponseEntity<List<Notification>> getNotifications(
             @RequestParam(required = false) String email,
-            @RequestParam(required = false) String studentId) {
-        if (email != null && !email.isEmpty()) {
-            return ResponseEntity.ok(notificationService.getNotificationsByEmail(email));
+            @RequestParam(required = false) String userId,
+            @RequestParam(required = false) String studentId,
+            @RequestParam(required = false) String role,
+            @RequestHeader(value = "X-User-Email", required = false) String headerEmail) {
+        
+        String effectiveEmail = (email != null && !email.trim().isEmpty()) ? email.trim() : headerEmail;
+
+        if ((effectiveEmail != null && !effectiveEmail.isEmpty()) || (userId != null && !userId.isEmpty())) {
+            return ResponseEntity.ok(notificationService.getNotificationsForUser(userId, effectiveEmail, role));
         }
         if (studentId != null && !studentId.isEmpty()) {
             return ResponseEntity.ok(notificationService.getNotificationsByStudent(studentId));
         }
-        return ResponseEntity.ok(notificationService.getAllNotifications());
+        if ("ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.ok(notificationService.getAllNotifications());
+        }
+        return ResponseEntity.ok(java.util.Collections.emptyList());
     }
 
     @PostMapping

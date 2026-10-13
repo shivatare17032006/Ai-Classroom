@@ -21,11 +21,44 @@ public class NotificationService {
     }
 
     public List<Notification> getNotificationsByEmail(String email) {
-        return notificationRepository.findByRecipientEmailOrderByCreatedAtDesc(email);
+        return notificationRepository.findByRecipientEmailIgnoreCaseOrderByCreatedAtDesc(email);
     }
 
     public List<Notification> getNotificationsByStudent(String studentId) {
         return notificationRepository.findByStudentIdOrderByCreatedAtDesc(studentId);
+    }
+
+    public List<Notification> getNotificationsForUser(String userId, String email, String role) {
+        List<Notification> all = notificationRepository.findAllByOrderByCreatedAtDesc();
+        if (all == null || all.isEmpty()) return java.util.Collections.emptyList();
+
+        final String cleanEmail = (email != null) ? email.trim().toLowerCase() : null;
+        final String cleanRole = (role != null) ? role.trim().toUpperCase() : null;
+
+        return all.stream().filter(n -> {
+            if (n == null) return false;
+
+            // Never show PARENT notifications to teachers or students on their portal notification bell
+            if ("TEACHER".equalsIgnoreCase(cleanRole) || "STUDENT".equalsIgnoreCase(cleanRole)) {
+                if ("PARENT".equalsIgnoreCase(n.getRecipientRole())) {
+                    return false;
+                }
+            }
+
+            // Role isolation
+            if (cleanRole != null && n.getRecipientRole() != null && !n.getRecipientRole().isEmpty()) {
+                if (!cleanRole.equalsIgnoreCase(n.getRecipientRole())) {
+                    return false;
+                }
+            }
+
+            // Individual recipient matching
+            boolean idMatch = (userId != null && !userId.isEmpty() && userId.equals(n.getRecipientId()));
+            boolean emailMatch = (cleanEmail != null && !cleanEmail.isEmpty() && n.getRecipientEmail() != null && cleanEmail.equalsIgnoreCase(n.getRecipientEmail().trim()));
+            boolean studentMatch = ("STUDENT".equalsIgnoreCase(cleanRole) && userId != null && userId.equals(n.getStudentId()));
+
+            return idMatch || emailMatch || studentMatch;
+        }).collect(java.util.stream.Collectors.toList());
     }
 
     public Notification sendNotification(Notification notif) {

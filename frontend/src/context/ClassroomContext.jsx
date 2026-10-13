@@ -71,10 +71,10 @@ export const ClassroomProvider = ({ children }) => {
   useEffect(() => {
     refreshData();
 
-    // 1. Real-time Polling every 2.5 seconds for instant multi-user / multi-tab sync
+    // 1. Polling every 15 seconds (cloud DB - Supabase has ~150-300ms latency per request)
     const interval = setInterval(() => {
       refreshData();
-    }, 2500);
+    }, 15000);
 
     // 2. Cross-tab storage change listener
     const handleStorageChange = () => {
@@ -97,16 +97,36 @@ export const ClassroomProvider = ({ children }) => {
 
   const addClassroom = async (classroomData, teacher) => {
     const created = await ApiService.createClassroom(classroomData, teacher);
-    await refreshData();
-    if (created) setActiveClassroom(created);
+    if (created) {
+      setClassrooms(prev => {
+        const existingIndex = prev.findIndex(classroom => classroom.id === created.id);
+        if (existingIndex === -1) return [...prev, created];
+
+        const updated = [...prev];
+        updated[existingIndex] = created;
+        return updated;
+      });
+      setActiveClassroom(created);
+
+    }
     return created;
   };
 
   const joinClassroom = async (code, studentId) => {
     const res = await ApiService.joinClassroomByCode(code, studentId);
     if (res && res.success) {
-      await refreshData();
-      if (res.classroom) setActiveClassroom(res.classroom);
+      if (res.classroom) {
+        setClassrooms(prev => {
+          const existingIndex = prev.findIndex(classroom => classroom.id === res.classroom.id);
+          if (existingIndex === -1) return [...prev, res.classroom];
+
+          const updated = [...prev];
+          updated[existingIndex] = res.classroom;
+          return updated;
+        });
+        setActiveClassroom(res.classroom);
+      }
+
     }
     return res;
   };

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { ApiService } from '../services/api';
 import { getSessionUser, setSessionUser, clearSessionUser } from '../utils/cookieUtils';
 
@@ -10,15 +10,20 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const [licenses, setLicenses] = useState([]);
+  const licensesRef = useRef([]);
 
   const fetchUsers = async () => {
     try {
-      const loadedUsers = await ApiService.getUsers();
+      const [loadedUsers, loadedLicenses] = await Promise.all([
+        ApiService.getUsers(),
+        ApiService.getLicenses()
+      ]);
       const safeUsers = Array.isArray(loadedUsers) ? loadedUsers : [];
       setUsers(safeUsers);
 
-      const loadedLicenses = await ApiService.getLicenses();
-      setLicenses(Array.isArray(loadedLicenses) ? loadedLicenses : []);
+      const safeLicenses = Array.isArray(loadedLicenses) ? loadedLicenses : [];
+      licensesRef.current = safeLicenses;
+      setLicenses(safeLicenses);
 
       // Sync active user session with latest database state
       const active = getSessionUser();
@@ -27,7 +32,7 @@ export const AuthProvider = ({ children }) => {
         const freshUser = safeUsers.find(u => u.email && u.email.trim().toLowerCase() === cleanEmail);
         if (freshUser) {
           const domain = cleanEmail.split('@')[1]?.toLowerCase();
-          const hasActiveLic = Array.isArray(loadedLicenses) && loadedLicenses.some(l => 
+          const hasActiveLic = safeLicenses.some(l => 
             l.domainExtension && l.domainExtension.toLowerCase().replace('@', '') === domain && l.status === 'ACTIVE'
           );
           let realPlan = freshUser.planType || 'FREE';
@@ -122,10 +127,10 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     fetchUsers();
 
-    // Polling every 2.5s to keep licenses and user session synced in real time
+    // Polling every 15 seconds to keep licenses and user session synced (cloud DB optimized)
     const interval = setInterval(() => {
       fetchUsers();
-    }, 2500);
+    }, 15000);
 
     const handleStorageChange = () => {
       fetchUsers();
@@ -152,7 +157,7 @@ export const AuthProvider = ({ children }) => {
       // Automatic Institutional Domain License Link for Teachers
       if (user.role === 'TEACHER' && user.planType !== 'INDIVIDUAL_PRO') {
         const domain = cleanEmail.split('@')[1]?.toLowerCase();
-        const activeLicenses = await ApiService.getLicenses();
+        const activeLicenses = licensesRef.current;
         if (domain && activeLicenses && activeLicenses.length > 0) {
           const matchedLic = activeLicenses.find(l => 
             l.domainExtension && l.domainExtension.toLowerCase().replace('@', '') === domain && l.status === 'ACTIVE'

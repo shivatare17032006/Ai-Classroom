@@ -13,11 +13,11 @@ export const CreateClassroomModal = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name) return;
 
-    addClassroom({ name, section, description }, currentUser);
+    await addClassroom({ name, section, description }, currentUser);
     setName('');
     setDescription('');
     onClose();

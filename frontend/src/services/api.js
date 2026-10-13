@@ -69,7 +69,7 @@ function saveToStorage(key, data) {
 // HTTP Helper for Spring Boot Backend with 15-second Timeout Safety & Cookie Credentials
 async function httpFetch(endpoint, options = {}) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout for AI REST requests
+  const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout (Supabase cloud optimized)
 
   try {
     let sessionHeader = {};
@@ -504,10 +504,27 @@ export const ApiService = {
     return sub;
   },
 
-  // Notifications
-  getNotifications: async () => {
-    const data = await httpFetch('/notifications');
-    if (data) {
+  // Notifications (Individually filtered per authenticated user)
+  getNotifications: async (userParam) => {
+    let currentUser = userParam;
+    if (!currentUser) {
+      try {
+        const session = localStorage.getItem('aicl_active_session');
+        if (session) currentUser = JSON.parse(session);
+      } catch (e) {}
+    }
+
+    let query = '';
+    if (currentUser && currentUser.email) {
+      const params = new URLSearchParams();
+      params.append('email', currentUser.email);
+      if (currentUser.id) params.append('userId', currentUser.id);
+      if (currentUser.role) params.append('role', currentUser.role);
+      query = `?${params.toString()}`;
+    }
+
+    const data = await httpFetch(`/notifications${query}`);
+    if (data && Array.isArray(data)) {
       saveToStorage(STORAGE_KEYS.NOTIFICATIONS, data);
       return data;
     }

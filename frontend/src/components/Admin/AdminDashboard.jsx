@@ -170,12 +170,12 @@ export const AdminDashboard = () => {
   }, [teacherUsers, searchTerm]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1440px', margin: '0 auto' }}>
+    <div className="admin-page" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1440px', margin: '0 auto' }}>
       
       {/* ==================================================================== */}
       {/* EXECUTIVE SAAS OPERATIONS COCKPIT BANNER                             */}
       {/* ==================================================================== */}
-      <div style={{ 
+      <div className="admin-hero" style={{ 
         background: 'linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%)', 
         padding: '2rem 2.25rem', 
         borderRadius: '20px',
@@ -190,10 +190,10 @@ export const AdminDashboard = () => {
         overflow: 'hidden'
       }}>
         {/* Subtle decorative glow */}
-        <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '220px', height: '220px', background: 'radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        <div className="admin-hero-glow" style={{ position: 'absolute', top: '-60px', right: '-60px', width: '220px', height: '220px', background: 'radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', position: 'relative', zIndex: 1 }}>
-          <div style={{ 
+          <div className="admin-mark" style={{ 
             width: '60px', 
             height: '60px', 
             borderRadius: '16px', 
@@ -209,20 +209,20 @@ export const AdminDashboard = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
               <h1 style={{ fontSize: '1.85rem', fontWeight: 900, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
-                Enterprise Operations Command
+                Administration
               </h1>
               <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.25)', color: '#c7d2fe', border: '1px solid rgba(99, 102, 241, 0.5)', fontSize: '0.72rem', fontWeight: 800 }}>
-                TIER-1 SUPERADMIN
+                Admin workspace
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.35rem', flexWrap: 'wrap', fontSize: '0.82rem', color: '#94a3b8' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#34d399', fontWeight: 700 }}>
-                <span className="radar-pulse-dot" /> AWS ap-south-1 Cluster Active
+              <span className="radar-pulse-dot" /> Service status: operational
               </span>
               <span>•</span>
-              <span>PostgreSQL 16 High-Availability</span>
+              <span>Billing and account management</span>
               <span>•</span>
-              <span>Spring Boot 3.3.4 Enterprise Service</span>
+              <span>Last updated just now</span>
             </div>
           </div>
         </div>
@@ -235,7 +235,7 @@ export const AdminDashboard = () => {
             className="btn btn-secondary"
             style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#f8fafc', borderColor: 'rgba(255, 255, 255, 0.2)', fontSize: '0.82rem', gap: '0.45rem', fontWeight: 700 }}
           >
-            <Download size={14} /> Export Financial CSV
+            <Download size={14} /> Export report
           </button>
 
           <div style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)', padding: '0.55rem 1rem', borderRadius: '12px', fontSize: '0.85rem', color: '#fbbf24', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
@@ -250,7 +250,7 @@ export const AdminDashboard = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
         
         {/* KPI 1: ARR */}
-        <div className="glass-card" style={{ padding: '1.5rem', borderLeft: '4px solid #10b981', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+        <div className="glass-card financial-card" style={{ padding: '1.5rem', borderLeft: '4px solid #10b981', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Annual Recurring Revenue (ARR)
@@ -268,7 +268,7 @@ export const AdminDashboard = () => {
         </div>
 
         {/* KPI 2: MRR */}
-        <div className="glass-card" style={{ padding: '1.5rem', borderLeft: '4px solid var(--accent-blue)', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+        <div className="glass-card financial-card" style={{ padding: '1.5rem', borderLeft: '4px solid var(--accent-blue)', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Monthly Run Rate (MRR)
@@ -286,7 +286,7 @@ export const AdminDashboard = () => {
         </div>
 
         {/* KPI 3: B2B Campuses */}
-        <div className="glass-card" style={{ padding: '1.5rem', borderLeft: '4px solid var(--accent-purple)', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+        <div className="glass-card financial-card" style={{ padding: '1.5rem', borderLeft: '4px solid var(--accent-purple)', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Institutional Campuses
@@ -304,7 +304,7 @@ export const AdminDashboard = () => {
         </div>
 
         {/* KPI 4: Active Faculty */}
-        <div className="glass-card" style={{ padding: '1.5rem', borderLeft: '4px solid #ec4899', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+        <div className="glass-card financial-card" style={{ padding: '1.5rem', borderLeft: '4px solid #ec4899', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Faculty Educator Accounts
@@ -859,7 +859,7 @@ export const AdminDashboard = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
           
           {/* Revenue Breakdown Progress Bar */}
-          <div className="glass-card" style={{ padding: '1.75rem' }}>
+          <div className="glass-card revenue-panel" style={{ padding: '1.75rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0 }}>

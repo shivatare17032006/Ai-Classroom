@@ -13,14 +13,7 @@ import {
   KeyRound,
   GraduationCap
 } from 'lucide-react';
-
-const GRADIENTS = [
-  'linear-gradient(135deg, #1e3a8a, #3b82f6)',
-  'linear-gradient(135deg, #4c1d95, #8b5cf6)',
-  'linear-gradient(135deg, #065f46, #10b981)',
-  'linear-gradient(135deg, #831843, #ec4899)',
-  'linear-gradient(135deg, #78350f, #f59e0b)'
-];
+import { getClassroomColor } from '../../utils/classroomTheme';
 
 export const ClassroomList = ({ onSelectClassroom }) => {
   const { classrooms, setActiveClassroom } = useClassroom();
@@ -57,7 +50,7 @@ export const ClassroomList = ({ onSelectClassroom }) => {
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>My Classrooms</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             {currentUser?.role === 'TEACHER' 
-              ? 'Manage your courses, create assignments, and review AI-graded student submissions.' 
+              ? '              Manage your courses, assignments, and student submissions.' 
               : 'View your enrolled courses, submit assignments, and track grades.'}
           </p>
         </div>
@@ -120,7 +113,7 @@ export const ClassroomList = ({ onSelectClassroom }) => {
         /* Classroom Cards Grid */
         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
           {userClassrooms.map((c, index) => {
-            const bgGradient = GRADIENTS[index % GRADIENTS.length];
+            const classroomColor = getClassroomColor(c);
             const studentCount = c.studentIds ? c.studentIds.length : 0;
 
             return (
@@ -137,7 +130,7 @@ export const ClassroomList = ({ onSelectClassroom }) => {
               >
                 {/* Card Google Classroom Banner Header */}
                 <div style={{
-                  background: bgGradient,
+                  background: classroomColor,
                   padding: '1.25rem',
                   color: '#ffffff',
                   position: 'relative'

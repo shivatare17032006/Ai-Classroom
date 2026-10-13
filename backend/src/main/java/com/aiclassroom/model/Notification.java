@@ -10,10 +10,12 @@ import jakarta.persistence.Table;
 public class Notification {
     @Id
     private String id;
+    private String recipientId;
     private String recipientEmail;
     private String recipientRole; // STUDENT, PARENT, TEACHER, ADMIN
     private String studentId;
     private String studentName;
+    private String classroomId;
     private String type; // LOW_SCORE_FLAG, PLAGIARISM_ALERT, EXTENSION_GRANTED, ASSIGNMENT_NEW
     private String title;
 
@@ -26,12 +28,14 @@ public class Notification {
     public Notification() {
     }
 
-    public Notification(String id, String recipientEmail, String recipientRole, String studentId, String studentName, String type, String title, String message, String createdAt, Boolean read) {
+    public Notification(String id, String recipientId, String recipientEmail, String recipientRole, String studentId, String studentName, String classroomId, String type, String title, String message, String createdAt, Boolean read) {
         this.id = id;
+        this.recipientId = recipientId;
         this.recipientEmail = recipientEmail;
         this.recipientRole = recipientRole;
         this.studentId = studentId;
         this.studentName = studentName;
+        this.classroomId = classroomId;
         this.type = type;
         this.title = title;
         this.message = message;
@@ -39,8 +43,15 @@ public class Notification {
         this.read = read;
     }
 
+    public Notification(String id, String recipientEmail, String recipientRole, String studentId, String studentName, String type, String title, String message, String createdAt, Boolean read) {
+        this(id, null, recipientEmail, recipientRole, studentId, studentName, null, type, title, message, createdAt, read);
+    }
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
+
+    public String getRecipientId() { return recipientId; }
+    public void setRecipientId(String recipientId) { this.recipientId = recipientId; }
 
     public String getRecipientEmail() { return recipientEmail; }
     public void setRecipientEmail(String recipientEmail) { this.recipientEmail = recipientEmail; }
@@ -53,6 +64,9 @@ public class Notification {
 
     public String getStudentName() { return studentName; }
     public void setStudentName(String studentName) { this.studentName = studentName; }
+
+    public String getClassroomId() { return classroomId; }
+    public void setClassroomId(String classroomId) { this.classroomId = classroomId; }
 
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
@@ -73,10 +87,12 @@ public class Notification {
 
     public static class NotificationBuilder {
         private String id;
+        private String recipientId;
         private String recipientEmail;
         private String recipientRole;
         private String studentId;
         private String studentName;
+        private String classroomId;
         private String type;
         private String title;
         private String message;
@@ -84,10 +100,12 @@ public class Notification {
         private Boolean read;
 
         public NotificationBuilder id(String id) { this.id = id; return this; }
+        public NotificationBuilder recipientId(String recipientId) { this.recipientId = recipientId; return this; }
         public NotificationBuilder recipientEmail(String recipientEmail) { this.recipientEmail = recipientEmail; return this; }
         public NotificationBuilder recipientRole(String recipientRole) { this.recipientRole = recipientRole; return this; }
         public NotificationBuilder studentId(String studentId) { this.studentId = studentId; return this; }
         public NotificationBuilder studentName(String studentName) { this.studentName = studentName; return this; }
+        public NotificationBuilder classroomId(String classroomId) { this.classroomId = classroomId; return this; }
         public NotificationBuilder type(String type) { this.type = type; return this; }
         public NotificationBuilder title(String title) { this.title = title; return this; }
         public NotificationBuilder message(String message) { this.message = message; return this; }
@@ -95,7 +113,7 @@ public class Notification {
         public NotificationBuilder read(Boolean read) { this.read = read; return this; }
 
         public Notification build() {
-            return new Notification(id, recipientEmail, recipientRole, studentId, studentName, type, title, message, createdAt, read);
+            return new Notification(id, recipientId, recipientEmail, recipientRole, studentId, studentName, classroomId, type, title, message, createdAt, read);
         }
     }
 }

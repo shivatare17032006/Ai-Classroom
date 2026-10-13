@@ -99,6 +99,7 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
           <Crown size={18} color="var(--accent-purple)" /> Billing & Pro Licensing
         </button>
       )}
+
     </aside>
   );
 };
