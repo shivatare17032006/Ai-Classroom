@@ -1,18 +1,15 @@
 # =========================================================
 # Stage 1: Build the application with Maven
 # =========================================================
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM maven:3.9-eclipse-temurin-17 AS build
 
 WORKDIR /app
 
-# Copy Maven wrapper and pom.xml first (for Docker layer caching)
+# Copy pom.xml first and download dependencies (cached layer)
 COPY pom.xml .
+RUN mvn dependency:resolve -B || true
 
-# Download dependencies (cached unless pom.xml changes)
-RUN apk add --no-cache maven && \
-    mvn dependency:go-offline -B
-
-# Copy source code and build
+# Copy source code and build the JAR
 COPY src ./src
 RUN mvn clean package -DskipTests -B
 
