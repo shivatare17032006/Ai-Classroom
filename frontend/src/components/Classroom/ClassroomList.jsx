@@ -111,7 +111,7 @@ export const ClassroomList = ({ onSelectClassroom }) => {
         </div>
       ) : (
         /* Classroom Cards Grid */
-        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
+        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))' }}>
           {userClassrooms.map((c, index) => {
             const classroomColor = getClassroomColor(c);
             const studentCount = c.studentIds ? c.studentIds.length : 0;

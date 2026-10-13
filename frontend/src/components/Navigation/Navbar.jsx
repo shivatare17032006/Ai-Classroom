@@ -84,7 +84,7 @@ export const Navbar = ({ onNavigateBilling }) => {
   const isPro = isProUser(currentUser);
 
   return (
-    <header style={{
+    <header className="app-navbar" style={{
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -97,7 +97,7 @@ export const Navbar = ({ onNavigateBilling }) => {
       zIndex: 100
     }}>
       {/* Brand Title */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <div style={{
           background: 'var(--accent-blue)',
           padding: '0.6rem',
@@ -119,7 +119,7 @@ export const Navbar = ({ onNavigateBilling }) => {
 
       {/* Classroom Dropdown Selector */}
       {userClassrooms.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '0.4rem 0.9rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+        <div className="navbar-classroom-selector" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '0.4rem 0.9rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
           <BookOpen size={16} color="var(--accent-blue)" />
           <select 
             value={activeClassroom && userClassrooms.some(c => c.id === activeClassroom.id) ? activeClassroom.id : ''} 
@@ -134,7 +134,7 @@ export const Navbar = ({ onNavigateBilling }) => {
       )}
 
       {/* Right User Actions & Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+      <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
         
         {/* SaaS Role Badge */}
         {currentUser?.role === 'ADMIN' ? (

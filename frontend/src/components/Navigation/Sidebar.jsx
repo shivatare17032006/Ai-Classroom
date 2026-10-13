@@ -14,7 +14,7 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
 
   if (role === 'ADMIN') {
     return (
-      <aside style={{
+      <aside className="app-sidebar" style={{
         width: '270px',
         background: 'var(--bg-card)',
         backdropFilter: 'blur(16px)',
@@ -46,7 +46,7 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
   }
 
   return (
-    <aside style={{
+    <aside className="app-sidebar" style={{
       width: '270px',
       background: 'var(--bg-card)',
       backdropFilter: 'blur(16px)',

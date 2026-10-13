@@ -73,7 +73,7 @@ const MainLayout = () => {
     <div className="app-container" style={{ flexDirection: 'column' }}>
       <Navbar onNavigateBilling={() => setActiveTab('billing')} />
       
-      <div style={{ display: 'flex', flex: 1 }}>
+      <div className="app-body" style={{ display: 'flex', flex: 1 }}>
         <Sidebar 
           activeTab={activeTab} 
           setActiveTab={(tab) => {

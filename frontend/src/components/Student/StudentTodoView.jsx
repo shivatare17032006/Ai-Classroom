@@ -93,7 +93,7 @@ export const StudentTodoView = () => {
 
       {/* Tab 1: Assigned */}
       {activeTab === 'assigned' && (
-        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
+        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))' }}>
           {assignedList.length === 0 ? (
             <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3.5rem 1rem' }}>
               <CheckCircle2 size={48} color="var(--status-success)" style={{ margin: '0 auto 1rem', display: 'block' }} />
@@ -139,7 +139,7 @@ export const StudentTodoView = () => {
 
       {/* Tab 2: Missing */}
       {activeTab === 'missing' && (
-        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
+        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))' }}>
           {missingList.length === 0 ? (
             <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3.5rem 1rem' }}>
               <CheckCircle2 size={48} color="var(--status-success)" style={{ margin: '0 auto 1rem', display: 'block' }} />
@@ -182,7 +182,7 @@ export const StudentTodoView = () => {
 
       {/* Tab 3: Done */}
       {activeTab === 'done' && (
-        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
+        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))' }}>
           {doneList.length === 0 ? (
             <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3.5rem 1rem' }}>
               <Clock size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem', display: 'block' }} />

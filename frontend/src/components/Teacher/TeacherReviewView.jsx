@@ -81,7 +81,7 @@ export const TeacherReviewView = ({ onNavigateBilling }) => {
 
       {/* Tab 1: To Review */}
       {activeTab === 'to-review' && (
-        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
+        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))' }}>
           {toReviewList.length === 0 ? (
             <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3.5rem 1rem' }}>
               <CheckCircle2 size={48} color="var(--status-success)" style={{ margin: '0 auto 1rem', display: 'block' }} />
@@ -136,7 +136,7 @@ export const TeacherReviewView = ({ onNavigateBilling }) => {
 
       {/* Tab 2: Reviewed */}
       {activeTab === 'reviewed' && (
-        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
+        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))' }}>
           {reviewedList.length === 0 ? (
             <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3.5rem 1rem' }}>
               <Clock size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem', display: 'block' }} />
@@ -203,4 +203,3 @@ export const TeacherReviewView = ({ onNavigateBilling }) => {
     </div>
   );
 };
-
