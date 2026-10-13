@@ -5,13 +5,15 @@ FROM maven:3.9-eclipse-temurin-17 AS build
 
 WORKDIR /app
 
-# Copy pom.xml first and download dependencies (cached layer)
+# Copy pom.xml first (for Docker layer caching)
 COPY pom.xml .
-RUN mvn dependency:resolve -B || true
 
-# Copy source code and build the JAR
+# Copy source code and build JAR in one step
+# Maven retries handle transient 429 rate limits from Maven Central
 COPY src ./src
-RUN mvn clean package -DskipTests -B
+RUN mvn clean package -DskipTests -B \
+    -Dmaven.wagon.http.retryHandler.count=5 \
+    -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 
 # =========================================================
 # Stage 2: Run the application on a lightweight JRE
